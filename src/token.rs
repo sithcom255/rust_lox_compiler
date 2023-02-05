@@ -1,3 +1,4 @@
+use std::env::var;
 use std::fs;
 use regex::Regex;
 
@@ -22,7 +23,7 @@ pub enum TokenType {
     BangEqual,
     Equal,
     EqualEqual,
-    Greate,
+    Greater,
     GreaterEqual,
     Less,
     LessEqual,
@@ -68,7 +69,6 @@ pub struct Parser {
 }
 
 impl Parser {
-
     pub fn new() -> Parser {
         Parser { current: 0, size: 0, line: 0, chars: vec![] }
     }
@@ -79,7 +79,7 @@ impl Parser {
     }
 
     pub fn parse_string(&mut self, content: String) -> Vec<Token> {
-        self.chars = content.chars().map(|ch| ch as char ).collect::<Vec<_>>();
+        self.chars = content.chars().map(|ch| ch as char).collect::<Vec<_>>();
         self.size = self.chars.len();
         self.current = 0;
         self.line = 0;
@@ -88,20 +88,17 @@ impl Parser {
         vec
     }
 
-    fn advance(&mut self) {
-
-    }
+    fn advance(&mut self) {}
 
     fn peek_advance(&mut self, peeked: usize, expected: &char) -> bool {
         if peeked >= self.size || !self.chars[peeked].eq(expected) {
             return false;
         }
         self.current += 1;
-        return true
+        return true;
     }
 
     pub fn tokenize(&mut self, value: String) -> Token {
-
         let token_type = match self.chars.iter().next().unwrap() {
             '(' => TokenType::LeftParen,
             ')' => TokenType::RightParen,
@@ -134,14 +131,35 @@ impl Parser {
         }
     }
 
-    // pub fn parse_two_chars(&self, value: usize) -> Option<TokenType> {
-    //    match self.chars[value] {
-    //        '!' =>
-    //        '_' =>
-    //         '<' =>
-    //         '>' =>
-    //    }
-    // }
+    pub fn parse_two_chars(&mut self, value: usize) -> Option<TokenType> {
+        match self.chars[value] {
+            '!' => return if self.peek_advance(value + 1, &'=')
+            {
+                Some(TokenType::BangEqual)
+            } else {
+                Some(TokenType::Bang)
+            },
+            '=' => return if self.peek_advance(value + 1, &'=')
+            {
+                Some(TokenType::EqualEqual)
+            } else {
+                Some(TokenType::Equal)
+            },
+            '<' => return if self.peek_advance(value + 1, &'=')
+            {
+                Some(TokenType::LessEqual)
+            } else {
+                Some(TokenType::Less)
+            },
+            '>' => return if self.peek_advance(value + 1, &'=')
+            {
+                Some(TokenType::GreaterEqual)
+            } else {
+                Some(TokenType::Greater)
+            },
+            _ => None
+        }
+    }
 
 
     fn parse_unknown(&self, value: &str) -> TokenType {
@@ -165,13 +183,15 @@ pub fn test_parsing_one_token() {
 
 #[test]
 pub fn parse_two_char_token() {
-    let parser = Parser::new();
-    // let variable = parser.parse_two_chars("!=");
+    let mut parser = Parser::new();
+    parser.parse_string("!=".to_string());
+    let variable = parser.parse_two_chars(0);
+    println!("{:?}", variable)
 }
 
 #[test]
 pub fn peek_advance() {
     let mut parser = Parser::new();
     parser.parse_string("hello".to_string());
-    let variable = parser.peek_advance(1,&'e');
+    let variable = parser.peek_advance(1, &'e');
 }
