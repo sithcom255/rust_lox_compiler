@@ -52,13 +52,14 @@ pub enum TokenType {
     While,
 
     EOF,
+    Space,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct Token {
     token_type: TokenType,
     value: String,
-    line: u32,
+    line: usize,
 }
 
 pub struct Parser {
@@ -83,33 +84,60 @@ impl Parser {
         self.size = self.chars.len();
         self.current = 0;
         self.line = 0;
-        let mut vec = Vec::new();
-        vec.push(self.tokenize(content));
-        vec
+
+        self.tokenize()
     }
 
     fn advance(&mut self) {
-
+        self.current += 1;
     }
 
-    pub fn tokenize(&mut self, value: String) -> Token {
-        let token_type = match self.chars.iter().next().unwrap() {
-            '(' => TokenType::LeftParen,
-            ')' => TokenType::RightParen,
-            '{' => TokenType::LeftBrace,
-            '}' => TokenType::RightBrace,
-            ',' => TokenType::Comma,
-            '.' => TokenType::Dot,
-            '-' => TokenType::Minus,
-            '+' => TokenType::Plus,
-            ';' => TokenType::Semicolon,
-            '*' => TokenType::Star,
-            _ => self.parse_unknown(value.as_ref()),
+    pub fn tokenize(&mut self) -> Vec<Token> {
+        let mut result_tokens = Vec::new();
+        while self.current < self.size {
+            let initial = self.current;
+            match self.parse_single_char(self.current) {
+                Some(TokenType::Space) => {
+                    self.advance();
+                    continue; 
+                }
+                Some(token_type) => {
+                    let mut char_array = vec![' '];
+                    char_array.copy_from_slice(&self.chars[self.current..self.current + 1]);
+                    let value = char_array.iter().collect();
+                    result_tokens.push(Token { token_type, value, line: self.line });
+                    self.advance();
+                    continue;
+                }
+                None => {}
+            };
+
+            match self.parse_two_chars(self.current) {
+                
+                Some(token_type) => {
+                    let mut arr = vec![' '; 2];
+                    self.chars[initial..self.current + 1].clone_into(&mut arr);
+                    let value = arr.iter().collect();
+                    result_tokens.push(Token { token_type, value, line: self.line });
+                    self.advance();
+                    continue;
+                }
+                None => {}
+            };
+            match self.parse_other(self.current) {
+                Some(value) => {
+                    // vec.push(value);
+                    self.advance();
+                    continue;
+                }
+                None => {}
+            };
         };
-        Token { token_type, value, line: 0 }
+
+        result_tokens
     }
 
-    pub fn parse_single_char(&self, value: usize) -> Option<TokenType> {
+    fn parse_single_char(&self, value: usize) -> Option<TokenType> {
         match self.chars[value] {
             '(' => Some(TokenType::LeftParen),
             ')' => Some(TokenType::RightParen),
@@ -121,7 +149,8 @@ impl Parser {
             '+' => Some(TokenType::Plus),
             ';' => Some(TokenType::Semicolon),
             '*' => Some(TokenType::Star),
-            _ => None
+            ' ' => Some(TokenType::Space),
+             _ => None
         }
     }
 
@@ -163,11 +192,18 @@ impl Parser {
         self.current += 1;
         return true;
     }
+    fn parse_other(&self, current: usize) -> Option<TokenType> {
+        // let regex = Regex::new("[a-zA-Z]").unwrap();
+        if self.chars[self.current].is_alphabetic() {
+
+        };
+        return Some(TokenType::Plus)
+    }
 }
 
 
 #[test]
-pub fn test_parsing_one_token() {
+fn test_parsing_one_token() {
     let mut parser = Parser::new();
     parser.parse_string("+".to_string());
     let variable = parser.parse_single_char(0);
@@ -175,7 +211,7 @@ pub fn test_parsing_one_token() {
 }
 
 #[test]
-pub fn parse_two_char_token() {
+fn parse_two_char_token() {
     let mut parser = Parser::new();
     parser.parse_string("!=".to_string());
     let variable = parser.parse_two_chars(0);
@@ -183,8 +219,33 @@ pub fn parse_two_char_token() {
 }
 
 #[test]
-pub fn peek_advance() {
+fn peek_advance() {
     let mut parser = Parser::new();
     parser.parse_string("hello".to_string());
     let variable = parser.peek_advance(1, &'e');
 }
+
+#[test]
+fn tokenize() {
+    let mut parser = Parser::new();
+    let variable = parser.parse_string("+".to_string());
+    let token = Token{ token_type : TokenType::Plus, value: "+".to_string(), line: 0};
+    assert_eq!(vec![token], variable)
+}
+
+#[test]
+fn tokenize_two_chars() {
+    let mut parser = Parser::new();
+    let variable = parser.parse_string("!= ".to_string());
+    let token = Token{ token_type : TokenType::BangEqual, value: "!=".to_string(), line: 0};
+    assert_eq!(vec![token], variable)
+}
+
+#[test]
+fn tokenize_and() {
+    let mut parser = Parser::new();
+    let variable = parser.parse_string(" and ".to_string());
+    let token = Token{ token_type : TokenType::And, value: "and".to_string(), line: 0};
+    assert_eq!(vec![token], variable)
+}
+
