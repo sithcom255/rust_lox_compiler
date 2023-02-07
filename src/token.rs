@@ -88,14 +88,8 @@ impl Parser {
         vec
     }
 
-    fn advance(&mut self) {}
+    fn advance(&mut self) {
 
-    fn peek_advance(&mut self, peeked: usize, expected: &char) -> bool {
-        if peeked >= self.size || !self.chars[peeked].eq(expected) {
-            return false;
-        }
-        self.current += 1;
-        return true;
     }
 
     pub fn tokenize(&mut self, value: String) -> Token {
@@ -162,13 +156,12 @@ impl Parser {
     }
 
 
-    fn parse_unknown(&self, value: &str) -> TokenType {
-        let string_regex = Regex::new("\"\\w+\"");
-        if string_regex.unwrap().is_match(value.as_ref()) {
-            return TokenType::String;
-        };
-        let value = TokenType::Nil;
-        value
+    fn peek_advance(&mut self, peeked: usize, expected: &char) -> bool {
+        if peeked >= self.size || !self.chars[peeked].eq(expected) {
+            return false;
+        }
+        self.current += 1;
+        return true;
     }
 }
 
