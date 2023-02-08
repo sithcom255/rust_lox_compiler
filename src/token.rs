@@ -1,7 +1,4 @@
-use std::env::var;
 use std::fs;
-use regex::Regex;
-
 
 #[derive(Debug, PartialEq)]
 pub enum TokenType {
@@ -122,9 +119,10 @@ impl Parser {
 
             self.consume_comment_or_divide();
 
+            let current = self.chars[self.current];
 
-            if self.chars[self.current].is_alphabetic() {
-                while self.current < self.size && self.chars[self.current].is_alphabetic() {
+            if current.is_alphabetic() || current == '_' {
+                while self.current < self.size && current.is_alphabetic() || current == '_'{
                     self.advance();
                 }
 
@@ -138,20 +136,14 @@ impl Parser {
                 };
             }
 
-            if self.chars[self.current].is_numeric() {
-                while self.current < self.size && self.chars[self.current].is_numeric() {
+            if current.is_numeric() {
+                while self.current < self.size && current.is_numeric() {
                     self.advance();
                 }
-                let value = self.get_string_from_char_range(initial, self.current, &self.chars);
-                match self.parse_other(&value) {
-                    Some(token_type) => {
-                        result_tokens.push(Token { token_type, value, line: self.line });
-                        continue;
-                    }
-                    None => {}
-                };
+                let value = self.get_string_from_char_range(
+                    initial, self.current, &self.chars);
+                 result_tokens.push(Token { token_type: TokenType::Number, value, line: self.line });
             }
-
         };
 
         result_tokens
@@ -214,7 +206,7 @@ impl Parser {
             "and" => Some(TokenType::And),
             "class" => Some(TokenType::Class),
             "else" => Some(TokenType::Else),
-            "false" => Some(TokenType::Fun),
+            "fun" => Some(TokenType::Fun),
             "for" => Some(TokenType::For),
             "if" => Some(TokenType::If),
             "nil" => Some(TokenType::Nil),
@@ -224,6 +216,7 @@ impl Parser {
             "super" => Some(TokenType::Super),
             "this" => Some(TokenType::This),
             "true" => Some(TokenType::True),
+            "false" => Some(TokenType::False),
             "var" => Some(TokenType::Var),
             "while" => Some(TokenType::While),
             "eof" => Some(TokenType::EOF),
@@ -284,7 +277,7 @@ fn parse_two_char_token() {
 fn peek_advance() {
     let mut parser = Parser::new();
     parser.parse_string("hello".to_string());
-    let variable = parser.peek_advance(1, &'e');
+    parser.peek_advance(1, &'e');
 }
 
 #[test]
@@ -305,7 +298,7 @@ fn tokenize_two_chars() {
 
 #[test]
 fn get_range() {
-    let mut parser = Parser::new();
+    let parser = Parser::new();
     let chars = vec!['a', 'n', 'd'];
     let string_from_range = parser.get_string_from_char_range(0, 3, &chars);
     assert_eq!("and", string_from_range)
@@ -313,7 +306,7 @@ fn get_range() {
 
 #[test]
 fn get_range_short() {
-    let mut parser = Parser::new();
+    let parser = Parser::new();
     let chars = vec!['a', 'n', 'd'];
     let string_from_range = parser.get_string_from_char_range(0, 1, &chars);
     assert_eq!("a", string_from_range)
@@ -359,3 +352,11 @@ fn handle_example() {
     assert_eq!(vec![token1, token2, token3, token4, token5, token6], variable)
 }
 
+#[test]
+fn parse_numeric() {
+    let mut parser = Parser::new();
+    let variable = parser.parse_string(" 1".to_string());
+    let token = Token { token_type: TokenType::Number, value: "1".to_string(), line: 0 };
+
+    assert_eq!(vec![token], variable)
+}
