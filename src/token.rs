@@ -99,12 +99,10 @@ impl Parser {
             match self.parse_single_char(self.current) {
                 Some(TokenType::Space) => {
                     self.advance();
-                    continue; 
+                    continue;
                 }
                 Some(token_type) => {
-                    let mut char_array = vec![' '];
-                    char_array.copy_from_slice(&self.chars[self.current..self.current + 1]);
-                    let value = char_array.iter().collect();
+                    let value = self.get_string_from_char_range(self.current, self.current + 1, &self.chars);
                     result_tokens.push(Token { token_type, value, line: self.line });
                     self.advance();
                     continue;
@@ -113,31 +111,53 @@ impl Parser {
             };
 
             match self.parse_two_chars(self.current) {
-                
                 Some(token_type) => {
-                    let mut arr = vec![' '; 2];
-                    self.chars[initial..self.current + 1].clone_into(&mut arr);
-                    let value = arr.iter().collect();
+                    let value = self.get_string_from_char_range(initial, self.current + 1, &self.chars);
                     result_tokens.push(Token { token_type, value, line: self.line });
                     self.advance();
                     continue;
                 }
                 None => {}
             };
-            match self.parse_other(self.current) {
-                Some(value) => {
-                    // vec.push(value);
+
+            self.consume_comment_or_divide();
+
+
+            if self.chars[self.current].is_alphabetic() {
+                while self.current < self.size && self.chars[self.current].is_alphabetic() {
                     self.advance();
-                    continue;
                 }
-                None => {}
-            };
+
+                let value = self.get_string_from_char_range(initial, self.current, &self.chars);
+                match self.parse_other(&value) {
+                    Some(token_type) => {
+                        result_tokens.push(Token { token_type, value, line: self.line });
+                        continue;
+                    }
+                    None => {}
+                };
+            }
+
+            if self.chars[self.current].is_numeric() {
+                while self.current < self.size && self.chars[self.current].is_numeric() {
+                    self.advance();
+                }
+                let value = self.get_string_from_char_range(initial, self.current, &self.chars);
+                match self.parse_other(&value) {
+                    Some(token_type) => {
+                        result_tokens.push(Token { token_type, value, line: self.line });
+                        continue;
+                    }
+                    None => {}
+                };
+            }
+
         };
 
         result_tokens
     }
 
-    fn parse_single_char(&self, value: usize) -> Option<TokenType> {
+    fn parse_single_char(&mut self, value: usize) -> Option<TokenType> {
         match self.chars[value] {
             '(' => Some(TokenType::LeftParen),
             ')' => Some(TokenType::RightParen),
@@ -150,7 +170,12 @@ impl Parser {
             ';' => Some(TokenType::Semicolon),
             '*' => Some(TokenType::Star),
             ' ' => Some(TokenType::Space),
-             _ => None
+            '\t' => Some(TokenType::Space),
+            '\n' => {
+                self.line += 1;
+                Some(TokenType::Space)
+            }
+            _ => None
         }
     }
 
@@ -184,20 +209,57 @@ impl Parser {
         }
     }
 
+    fn parse_other(&mut self, value: &str) -> Option<TokenType> {
+        match value {
+            "and" => Some(TokenType::And),
+            "class" => Some(TokenType::Class),
+            "else" => Some(TokenType::Else),
+            "false" => Some(TokenType::Fun),
+            "for" => Some(TokenType::For),
+            "if" => Some(TokenType::If),
+            "nil" => Some(TokenType::Nil),
+            "or" => Some(TokenType::Or),
+            "print" => Some(TokenType::Print),
+            "return" => Some(TokenType::Return),
+            "super" => Some(TokenType::Super),
+            "this" => Some(TokenType::This),
+            "true" => Some(TokenType::True),
+            "var" => Some(TokenType::Var),
+            "while" => Some(TokenType::While),
+            "eof" => Some(TokenType::EOF),
+            _ => None,
+        }
+    }
 
+
+    fn consume_comment_or_divide(&mut self) -> Option<TokenType> {
+        match self.chars[self.current] {
+            '/' => {
+                self.advance();
+                if self.peek_advance(self.current, &'/') {
+                    while self.chars[self.current - 1] == '\n' && self.current < self.size {
+                        self.advance()
+                    }
+                    self.line += 1;
+                    return None;
+                }
+                return Some(TokenType::Slash);
+            }
+            _ => None
+        }
+    }
+
+    fn get_string_from_char_range(&self, start_inclusive: usize, end_exclusive: usize, chars: &Vec<char>) -> String {
+        let mut char_array = vec![' '; end_exclusive - start_inclusive];
+        char_array.copy_from_slice(&chars[start_inclusive..end_exclusive]);
+        char_array.iter().collect()
+    }
     fn peek_advance(&mut self, peeked: usize, expected: &char) -> bool {
         if peeked >= self.size || !self.chars[peeked].eq(expected) {
             return false;
         }
         self.current += 1;
         return true;
-    }
-    fn parse_other(&self, current: usize) -> Option<TokenType> {
-        // let regex = Regex::new("[a-zA-Z]").unwrap();
-        if self.chars[self.current].is_alphabetic() {
-
-        };
-        return Some(TokenType::Plus)
     }
 }
 
@@ -229,7 +291,7 @@ fn peek_advance() {
 fn tokenize() {
     let mut parser = Parser::new();
     let variable = parser.parse_string("+".to_string());
-    let token = Token{ token_type : TokenType::Plus, value: "+".to_string(), line: 0};
+    let token = Token { token_type: TokenType::Plus, value: "+".to_string(), line: 0 };
     assert_eq!(vec![token], variable)
 }
 
@@ -237,15 +299,63 @@ fn tokenize() {
 fn tokenize_two_chars() {
     let mut parser = Parser::new();
     let variable = parser.parse_string("!= ".to_string());
-    let token = Token{ token_type : TokenType::BangEqual, value: "!=".to_string(), line: 0};
+    let token = Token { token_type: TokenType::BangEqual, value: "!=".to_string(), line: 0 };
     assert_eq!(vec![token], variable)
+}
+
+#[test]
+fn get_range() {
+    let mut parser = Parser::new();
+    let chars = vec!['a', 'n', 'd'];
+    let string_from_range = parser.get_string_from_char_range(0, 3, &chars);
+    assert_eq!("and", string_from_range)
+}
+
+#[test]
+fn get_range_short() {
+    let mut parser = Parser::new();
+    let chars = vec!['a', 'n', 'd'];
+    let string_from_range = parser.get_string_from_char_range(0, 1, &chars);
+    assert_eq!("a", string_from_range)
 }
 
 #[test]
 fn tokenize_and() {
     let mut parser = Parser::new();
     let variable = parser.parse_string(" and ".to_string());
-    let token = Token{ token_type : TokenType::And, value: "and".to_string(), line: 0};
+    let token = Token { token_type: TokenType::And, value: "and".to_string(), line: 0 };
     assert_eq!(vec![token], variable)
+}
+
+
+#[test]
+fn remove_comment() {
+    let mut parser = Parser::new();
+    let variable = parser.parse_string(" and // lots of text ".to_string());
+    let token = Token { token_type: TokenType::And, value: "and".to_string(), line: 0 };
+    assert_eq!(vec![token], variable)
+}
+
+#[test]
+fn remove_comment_keep_next() {
+    let mut parser = Parser::new();
+    let variable = parser.parse_string(" and // lots of text \
+    and".to_string());
+    let token = Token { token_type: TokenType::And, value: "and".to_string(), line: 0 };
+    let token2 = Token { token_type: TokenType::And, value: "and".to_string(), line: 0 };
+    assert_eq!(vec![token, token2], variable)
+}
+
+#[test]
+fn handle_example() {
+    let mut parser = Parser::new();
+    let variable = parser.parse_string("(( )){}".to_string());
+    let token1 = Token { token_type: TokenType::LeftParen, value: "(".to_string(), line: 0 };
+    let token2 = Token { token_type: TokenType::LeftParen, value: "(".to_string(), line: 0 };
+    let token3 = Token { token_type: TokenType::RightParen, value: ")".to_string(), line: 0 };
+    let token4 = Token { token_type: TokenType::RightParen, value: ")".to_string(), line: 0 };
+    let token5 = Token { token_type: TokenType::LeftBrace, value: "{".to_string(), line: 0 };
+    let token6 = Token { token_type: TokenType::RightBrace, value: "}".to_string(), line: 0 };
+    assert_eq!(vec![token1, token2, token3, token4, token5, token6], variable)
 }
 
