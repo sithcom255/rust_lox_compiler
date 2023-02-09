@@ -1,4 +1,5 @@
 use std::fs;
+use crate::log::Log;
 
 #[derive(Debug, PartialEq)]
 pub enum TokenType {
@@ -117,32 +118,57 @@ impl Parser {
                 None => {}
             };
 
-            self.consume_comment_or_divide();
+            match self.consume_comment_or_divide() {
+                Some(TokenType::Space) => {
+                    continue;
+                }
+                Some(value) => {
+                    result_tokens.push(
+                        Token { token_type: TokenType::Slash, value: "/".to_string(), line: self.line });
+                    continue;
+                }
+                None => {}
+            }
 
-            let current = self.chars[self.current];
 
-            if current.is_alphabetic() || current == '_' {
-                while self.current < self.size && current.is_alphabetic() || current == '_'{
+            if self.chars[self.current].is_alphabetic() || self.chars[self.current] == '_' {
+                while self.current < self.size && (self.chars[self.current].is_alphabetic() || self.chars[self.current] == '_') {
                     self.advance();
                 }
 
                 let value = self.get_string_from_char_range(initial, self.current, &self.chars);
-                match self.parse_other(&value) {
-                    Some(token_type) => {
-                        result_tokens.push(Token { token_type, value, line: self.line });
-                        continue;
-                    }
-                    None => {}
-                };
+                result_tokens.push(Token { token_type: self.identifier_alternatives(&value), value, line: self.line });
+                continue;
             }
 
-            if current.is_numeric() {
-                while self.current < self.size && current.is_numeric() {
+            if self.chars[self.current].is_numeric() {
+                while self.current < self.size && self.chars[self.current].is_numeric() {
                     self.advance();
                 }
                 let value = self.get_string_from_char_range(
                     initial, self.current, &self.chars);
-                 result_tokens.push(Token { token_type: TokenType::Number, value, line: self.line });
+                result_tokens.push(Token { token_type: TokenType::Number, value, line: self.line });
+                continue;
+            }
+
+            if self.chars[self.current] == '"' {
+                self.advance();
+                if self.current == self.size {
+                    break;
+                }
+                while self.chars[self.current] != '"' {
+                    if self.current >= (self.size - 1) {
+                        Log::error(self.line, "Missing closing \" in a string");
+                        break;
+                    }
+                    self.advance();
+                }
+                self.advance();
+                let value = self.get_string_from_char_range(
+                    initial, self.current, &self.chars)
+                    .strip_prefix("\"").unwrap()
+                    .strip_suffix("\"").unwrap().to_string();
+                result_tokens.push(Token { token_type: TokenType::String, value, line: self.line })
             }
         };
 
@@ -201,40 +227,39 @@ impl Parser {
         }
     }
 
-    fn parse_other(&mut self, value: &str) -> Option<TokenType> {
+    fn identifier_alternatives(&mut self, value: &str) -> TokenType {
         match value {
-            "and" => Some(TokenType::And),
-            "class" => Some(TokenType::Class),
-            "else" => Some(TokenType::Else),
-            "fun" => Some(TokenType::Fun),
-            "for" => Some(TokenType::For),
-            "if" => Some(TokenType::If),
-            "nil" => Some(TokenType::Nil),
-            "or" => Some(TokenType::Or),
-            "print" => Some(TokenType::Print),
-            "return" => Some(TokenType::Return),
-            "super" => Some(TokenType::Super),
-            "this" => Some(TokenType::This),
-            "true" => Some(TokenType::True),
-            "false" => Some(TokenType::False),
-            "var" => Some(TokenType::Var),
-            "while" => Some(TokenType::While),
-            "eof" => Some(TokenType::EOF),
-            _ => None,
+            "and" => TokenType::And,
+            "class" => TokenType::Class,
+            "else" => TokenType::Else,
+            "fun" => TokenType::Fun,
+            "for" => TokenType::For,
+            "if" => TokenType::If,
+            "nil" => TokenType::Nil,
+            "or" => TokenType::Or,
+            "print" => TokenType::Print,
+            "return" => TokenType::Return,
+            "super" => TokenType::Super,
+            "this" => TokenType::This,
+            "true" => TokenType::True,
+            "false" => TokenType::False,
+            "var" => TokenType::Var,
+            "while" => TokenType::While,
+            "eof" => TokenType::EOF,
+            _ => TokenType::Identifier,
         }
     }
-
 
     fn consume_comment_or_divide(&mut self) -> Option<TokenType> {
         match self.chars[self.current] {
             '/' => {
                 self.advance();
                 if self.peek_advance(self.current, &'/') {
-                    while self.chars[self.current - 1] == '\n' && self.current < self.size {
+                    while self.chars[self.current - 1] != '\n' && self.current < self.size {
                         self.advance()
                     }
                     self.line += 1;
-                    return None;
+                    return Some(TokenType::Space);
                 }
                 return Some(TokenType::Slash);
             }
@@ -332,10 +357,20 @@ fn remove_comment() {
 #[test]
 fn remove_comment_keep_next() {
     let mut parser = Parser::new();
-    let variable = parser.parse_string(" and // lots of text \
+    let variable = parser.parse_string(" and // lots of text
     and".to_string());
     let token = Token { token_type: TokenType::And, value: "and".to_string(), line: 0 };
-    let token2 = Token { token_type: TokenType::And, value: "and".to_string(), line: 0 };
+    let token2 = Token { token_type: TokenType::And, value: "and".to_string(), line: 1 };
+    assert_eq!(vec![token, token2], variable)
+}
+
+#[test]
+fn check_correct_line_parsing() {
+    let mut parser = Parser::new();
+    let variable = parser.parse_string(" and
+    and".to_string());
+    let token = Token { token_type: TokenType::And, value: "and".to_string(), line: 0 };
+    let token2 = Token { token_type: TokenType::And, value: "and".to_string(), line: 1 };
     assert_eq!(vec![token, token2], variable)
 }
 
@@ -355,8 +390,37 @@ fn handle_example() {
 #[test]
 fn parse_numeric() {
     let mut parser = Parser::new();
-    let variable = parser.parse_string(" 1".to_string());
-    let token = Token { token_type: TokenType::Number, value: "1".to_string(), line: 0 };
+    let variable = parser.parse_string(" a 1".to_string());
+    let token = Token { token_type: TokenType::Identifier, value: "a".to_string(), line: 0 };
+    let token2 = Token { token_type: TokenType::Number, value: "1".to_string(), line: 0 };
+    assert_eq!(vec![token, token2], variable)
+}
 
+#[test]
+fn parse_string_empty() {
+    let mut parser = Parser::new();
+    let variable = parser.parse_string(" \"\"".to_string());
+    let token = Token { token_type: TokenType::String, value: "".to_string(), line: 0 };
     assert_eq!(vec![token], variable)
+}
+
+#[test]
+fn parse_string_multiline() {
+    let mut parser = Parser::new();
+    let variable = parser.parse_string(" \"
+    \"".to_string());
+    let token = Token {
+        token_type: TokenType::String,
+        value: "
+    ".to_string(),
+        line: 0,
+    };
+    assert_eq!(vec![token], variable)
+}
+
+#[test]
+fn parse_string_throws_unterminated_string() {
+    let mut parser = Parser::new();
+    let variable = parser.parse_string(" \"".to_string());
+    assert_eq!(Vec::<Token>::new(), variable)
 }

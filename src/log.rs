@@ -1,5 +1,5 @@
 
-struct Log {}
+pub(crate) struct Log {}
 
 impl Log {
     pub fn error(line: usize, message: &str) {
