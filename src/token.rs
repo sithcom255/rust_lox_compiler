@@ -130,45 +130,22 @@ impl Parser {
                 None => {}
             }
 
-
             if self.chars[self.current].is_alphabetic() || self.chars[self.current] == '_' {
-                while self.current < self.size && (self.chars[self.current].is_alphabetic() || self.chars[self.current] == '_') {
-                    self.advance();
-                }
-
-                let value = self.get_string_from_char_range(initial, self.current, &self.chars);
-                result_tokens.push(Token { token_type: self.identifier_alternatives(&value), value, line: self.line });
+                result_tokens.push(self.get_alphabetic_token(initial));
                 continue;
             }
 
             if self.chars[self.current].is_numeric() {
-                while self.current < self.size && self.chars[self.current].is_numeric() {
-                    self.advance();
-                }
-                let value = self.get_string_from_char_range(
-                    initial, self.current, &self.chars);
-                result_tokens.push(Token { token_type: TokenType::Number, value, line: self.line });
+                result_tokens.push(self.get_numeric_token(initial));
                 continue;
             }
 
             if self.chars[self.current] == '"' {
-                self.advance();
-                if self.current == self.size {
-                    break;
-                }
-                while self.chars[self.current] != '"' {
-                    if self.current >= (self.size - 1) {
-                        Log::error(self.line, "Missing closing \" in a string");
-                        break;
-                    }
-                    self.advance();
-                }
-                self.advance();
-                let value = self.get_string_from_char_range(
-                    initial, self.current, &self.chars)
-                    .strip_prefix("\"").unwrap()
-                    .strip_suffix("\"").unwrap().to_string();
-                result_tokens.push(Token { token_type: TokenType::String, value, line: self.line })
+                match self.get_string_token(initial) {
+                    Some(token) =>  result_tokens.push(token),
+                    None => break,
+                };
+
             }
         };
 
@@ -227,6 +204,33 @@ impl Parser {
         }
     }
 
+    fn consume_comment_or_divide(&mut self) -> Option<TokenType> {
+        match self.chars[self.current] {
+            '/' => {
+                self.advance();
+                if self.peek_advance(self.current, &'/') {
+                    while self.chars[self.current - 1] != '\n' && self.current < self.size {
+                        self.advance()
+                    }
+                    self.line += 1;
+                    return Some(TokenType::Space);
+                }
+                return Some(TokenType::Slash);
+            }
+            _ => None
+        }
+    }
+
+    fn get_alphabetic_token(&mut self, initial: usize) -> Token {
+        while self.current < self.size && (self.chars[self.current].is_alphabetic() || self.chars[self.current] == '_') {
+            self.advance();
+        }
+
+        let value = self.get_string_from_char_range(initial, self.current, &self.chars);
+        let token = Token { token_type: self.identifier_alternatives(&value), value, line: self.line };
+        token
+    }
+
     fn identifier_alternatives(&mut self, value: &str) -> TokenType {
         match value {
             "and" => TokenType::And,
@@ -250,21 +254,35 @@ impl Parser {
         }
     }
 
-    fn consume_comment_or_divide(&mut self) -> Option<TokenType> {
-        match self.chars[self.current] {
-            '/' => {
-                self.advance();
-                if self.peek_advance(self.current, &'/') {
-                    while self.chars[self.current - 1] != '\n' && self.current < self.size {
-                        self.advance()
-                    }
-                    self.line += 1;
-                    return Some(TokenType::Space);
-                }
-                return Some(TokenType::Slash);
-            }
-            _ => None
+    fn get_numeric_token(&mut self, initial: usize) -> Token {
+        while self.current < self.size && self.chars[self.current].is_numeric() {
+            self.advance();
         }
+        let value = self.get_string_from_char_range(
+            initial, self.current, &self.chars);
+        let token = Token { token_type: TokenType::Number, value, line: self.line };
+        token
+    }
+
+    fn get_string_token(&mut self, initial: usize) -> Option<Token> {
+        self.advance();
+        if self.current == self.size {
+            return None;
+        }
+        while self.chars[self.current] != '"' {
+            if self.current >= (self.size - 1) {
+                Log::error(self.line, "Missing closing \" in a string");
+                return None;
+            }
+            self.advance();
+        }
+        self.advance();
+        let value = self.get_string_from_char_range(
+            initial, self.current, &self.chars)
+            .strip_prefix("\"").unwrap()
+            .strip_suffix("\"").unwrap().to_string();
+        Some(Token { token_type: TokenType::String, value, line: self.line })
+
     }
 
     fn get_string_from_char_range(&self, start_inclusive: usize, end_exclusive: usize, chars: &Vec<char>) -> String {
