@@ -1,5 +1,5 @@
-use std::fs;
 use crate::log::Log;
+use std::fs;
 
 #[derive(Debug, PartialEq)]
 pub enum TokenType {
@@ -60,16 +60,21 @@ pub struct Token {
     line: usize,
 }
 
-pub struct Tokenizer {
+pub struct Scanner {
     current: usize,
     size: usize,
     line: usize,
     chars: Vec<char>,
 }
 
-impl Tokenizer {
-    pub fn new() -> Tokenizer {
-        Tokenizer { current: 0, size: 0, line: 0, chars: vec![] }
+impl Scanner {
+    pub fn new() -> Scanner {
+        Scanner {
+            current: 0,
+            size: 0,
+            line: 0,
+            chars: vec![],
+        }
     }
 
     pub fn tokenize_file(&mut self, file_path: &str) -> Vec<Token> {
@@ -100,8 +105,16 @@ impl Tokenizer {
                     continue;
                 }
                 Some(token_type) => {
-                    let value = self.get_string_from_char_range(self.current, self.current + 1, &self.chars);
-                    tokens.push(Token { token_type, value, line: self.line });
+                    let value = self.get_string_from_char_range(
+                        self.current,
+                        self.current + 1,
+                        &self.chars,
+                    );
+                    tokens.push(Token {
+                        token_type,
+                        value,
+                        line: self.line,
+                    });
                     self.advance();
                     continue;
                 }
@@ -110,8 +123,13 @@ impl Tokenizer {
 
             match self.tokenize_two_chars(self.current) {
                 Some(token_type) => {
-                    let value = self.get_string_from_char_range(initial, self.current + 1, &self.chars);
-                    tokens.push(Token { token_type, value, line: self.line });
+                    let value =
+                        self.get_string_from_char_range(initial, self.current + 1, &self.chars);
+                    tokens.push(Token {
+                        token_type,
+                        value,
+                        line: self.line,
+                    });
                     self.advance();
                     continue;
                 }
@@ -123,8 +141,11 @@ impl Tokenizer {
                     continue;
                 }
                 Some(value) => {
-                    tokens.push(
-                        Token { token_type: TokenType::Slash, value: "/".to_string(), line: self.line });
+                    tokens.push(Token {
+                        token_type: TokenType::Slash,
+                        value: "/".to_string(),
+                        line: self.line,
+                    });
                     continue;
                 }
                 None => {}
@@ -142,12 +163,11 @@ impl Tokenizer {
 
             if self.chars[self.current] == '"' {
                 match self.get_string_token(initial) {
-                    Some(token) =>  tokens.push(token),
+                    Some(token) => tokens.push(token),
                     None => break,
                 };
-
             }
-        };
+        }
 
         tokens
     }
@@ -170,37 +190,41 @@ impl Tokenizer {
                 self.line += 1;
                 Some(TokenType::Space)
             }
-            _ => None
+            _ => None,
         }
     }
 
     pub fn tokenize_two_chars(&mut self, value: usize) -> Option<TokenType> {
         match self.chars[value] {
-            '!' => return if self.peek_advance(value + 1, &'=')
-            {
-                Some(TokenType::BangEqual)
-            } else {
-                Some(TokenType::Bang)
-            },
-            '=' => return if self.peek_advance(value + 1, &'=')
-            {
-                Some(TokenType::EqualEqual)
-            } else {
-                Some(TokenType::Equal)
-            },
-            '<' => return if self.peek_advance(value + 1, &'=')
-            {
-                Some(TokenType::LessEqual)
-            } else {
-                Some(TokenType::Less)
-            },
-            '>' => return if self.peek_advance(value + 1, &'=')
-            {
-                Some(TokenType::GreaterEqual)
-            } else {
-                Some(TokenType::Greater)
-            },
-            _ => None
+            '!' => {
+                return if self.peek_advance(value + 1, &'=') {
+                    Some(TokenType::BangEqual)
+                } else {
+                    Some(TokenType::Bang)
+                }
+            }
+            '=' => {
+                return if self.peek_advance(value + 1, &'=') {
+                    Some(TokenType::EqualEqual)
+                } else {
+                    Some(TokenType::Equal)
+                }
+            }
+            '<' => {
+                return if self.peek_advance(value + 1, &'=') {
+                    Some(TokenType::LessEqual)
+                } else {
+                    Some(TokenType::Less)
+                }
+            }
+            '>' => {
+                return if self.peek_advance(value + 1, &'=') {
+                    Some(TokenType::GreaterEqual)
+                } else {
+                    Some(TokenType::Greater)
+                }
+            }
+            _ => None,
         }
     }
 
@@ -217,17 +241,23 @@ impl Tokenizer {
                 }
                 return Some(TokenType::Slash);
             }
-            _ => None
+            _ => None,
         }
     }
 
     fn get_alphabetic_token(&mut self, initial: usize) -> Token {
-        while self.current < self.size && (self.chars[self.current].is_alphabetic() || self.chars[self.current] == '_') {
+        while self.current < self.size
+            && (self.chars[self.current].is_alphabetic() || self.chars[self.current] == '_')
+        {
             self.advance();
         }
 
         let value = self.get_string_from_char_range(initial, self.current, &self.chars);
-        let token = Token { token_type: self.identifier_alternatives(&value), value, line: self.line };
+        let token = Token {
+            token_type: self.identifier_alternatives(&value),
+            value,
+            line: self.line,
+        };
         token
     }
 
@@ -258,9 +288,12 @@ impl Tokenizer {
         while self.current < self.size && self.chars[self.current].is_numeric() {
             self.advance();
         }
-        let value = self.get_string_from_char_range(
-            initial, self.current, &self.chars);
-        let token = Token { token_type: TokenType::Number, value, line: self.line };
+        let value = self.get_string_from_char_range(initial, self.current, &self.chars);
+        let token = Token {
+            token_type: TokenType::Number,
+            value,
+            line: self.line,
+        };
         token
     }
 
@@ -277,15 +310,26 @@ impl Tokenizer {
             self.advance();
         }
         self.advance();
-        let value = self.get_string_from_char_range(
-            initial, self.current, &self.chars)
-            .strip_prefix("\"").unwrap()
-            .strip_suffix("\"").unwrap().to_string();
-        Some(Token { token_type: TokenType::String, value, line: self.line })
-
+        let value = self
+            .get_string_from_char_range(initial, self.current, &self.chars)
+            .strip_prefix("\"")
+            .unwrap()
+            .strip_suffix("\"")
+            .unwrap()
+            .to_string();
+        Some(Token {
+            token_type: TokenType::String,
+            value,
+            line: self.line,
+        })
     }
 
-    fn get_string_from_char_range(&self, start_inclusive: usize, end_exclusive: usize, chars: &Vec<char>) -> String {
+    fn get_string_from_char_range(
+        &self,
+        start_inclusive: usize,
+        end_exclusive: usize,
+        chars: &Vec<char>,
+    ) -> String {
         let mut char_array = vec![' '; end_exclusive - start_inclusive];
         char_array.copy_from_slice(&chars[start_inclusive..end_exclusive]);
         char_array.iter().collect()
@@ -299,10 +343,9 @@ impl Tokenizer {
     }
 }
 
-
 #[test]
 fn test_tokenizing_one_token() {
-    let mut tokenizer = Tokenizer::new();
+    let mut tokenizer = Scanner::new();
     tokenizer.tokenize_string("+".to_string());
     let variable = tokenizer.tokenize_single_char(0);
     assert_eq!(variable, Some(TokenType::Plus));
@@ -310,7 +353,7 @@ fn test_tokenizing_one_token() {
 
 #[test]
 fn tokenize_two_char_token() {
-    let mut tokenizer = Tokenizer::new();
+    let mut tokenizer = Scanner::new();
     tokenizer.tokenize_string("!=".to_string());
     let variable = tokenizer.tokenize_two_chars(0);
     println!("{:?}", variable)
@@ -318,30 +361,38 @@ fn tokenize_two_char_token() {
 
 #[test]
 fn peek_advance() {
-    let mut tokenizer = Tokenizer::new();
+    let mut tokenizer = Scanner::new();
     tokenizer.tokenize_string("hello".to_string());
     tokenizer.peek_advance(1, &'e');
 }
 
 #[test]
 fn tokenize() {
-    let mut tokenizer = Tokenizer::new();
+    let mut tokenizer = Scanner::new();
     let variable = tokenizer.tokenize_string("+".to_string());
-    let token = Token { token_type: TokenType::Plus, value: "+".to_string(), line: 0 };
+    let token = Token {
+        token_type: TokenType::Plus,
+        value: "+".to_string(),
+        line: 0,
+    };
     assert_eq!(vec![token], variable)
 }
 
 #[test]
 fn tokenize_two_chars() {
-    let mut tokenizer = Tokenizer::new();
+    let mut tokenizer = Scanner::new();
     let variable = tokenizer.tokenize_string("!= ".to_string());
-    let token = Token { token_type: TokenType::BangEqual, value: "!=".to_string(), line: 0 };
+    let token = Token {
+        token_type: TokenType::BangEqual,
+        value: "!=".to_string(),
+        line: 0,
+    };
     assert_eq!(vec![token], variable)
 }
 
 #[test]
 fn get_range() {
-    let tokenizer = Tokenizer::new();
+    let tokenizer = Scanner::new();
     let chars = vec!['a', 'n', 'd'];
     let string_from_range = tokenizer.get_string_from_char_range(0, 3, &chars);
     assert_eq!("and", string_from_range)
@@ -349,7 +400,7 @@ fn get_range() {
 
 #[test]
 fn get_range_short() {
-    let tokenizer = Tokenizer::new();
+    let tokenizer = Scanner::new();
     let chars = vec!['a', 'n', 'd'];
     let string_from_range = tokenizer.get_string_from_char_range(0, 1, &chars);
     assert_eq!("a", string_from_range)
@@ -357,80 +408,152 @@ fn get_range_short() {
 
 #[test]
 fn tokenize_and() {
-    let mut tokenizer = Tokenizer::new();
+    let mut tokenizer = Scanner::new();
     let variable = tokenizer.tokenize_string(" and ".to_string());
-    let token = Token { token_type: TokenType::And, value: "and".to_string(), line: 0 };
+    let token = Token {
+        token_type: TokenType::And,
+        value: "and".to_string(),
+        line: 0,
+    };
     assert_eq!(vec![token], variable)
 }
 
-
 #[test]
 fn remove_comment() {
-    let mut tokenizer = Tokenizer::new();
+    let mut tokenizer = Scanner::new();
     let variable = tokenizer.tokenize_string(" and // lots of text ".to_string());
-    let token = Token { token_type: TokenType::And, value: "and".to_string(), line: 0 };
+    let token = Token {
+        token_type: TokenType::And,
+        value: "and".to_string(),
+        line: 0,
+    };
     assert_eq!(vec![token], variable)
 }
 
 #[test]
 fn remove_comment_keep_next() {
-    let mut tokenizer = Tokenizer::new();
-    let variable = tokenizer.tokenize_string(" and // lots of text
-    and".to_string());
-    let token = Token { token_type: TokenType::And, value: "and".to_string(), line: 0 };
-    let token2 = Token { token_type: TokenType::And, value: "and".to_string(), line: 1 };
+    let mut tokenizer = Scanner::new();
+    let variable = tokenizer.tokenize_string(
+        " and // lots of text
+    and"
+        .to_string(),
+    );
+    let token = Token {
+        token_type: TokenType::And,
+        value: "and".to_string(),
+        line: 0,
+    };
+    let token2 = Token {
+        token_type: TokenType::And,
+        value: "and".to_string(),
+        line: 1,
+    };
     assert_eq!(vec![token, token2], variable)
 }
 
 #[test]
 fn check_correct_line_tokenizing() {
-    let mut tokenizer = Tokenizer::new();
-    let variable = tokenizer.tokenize_string(" and
-    and".to_string());
-    let token = Token { token_type: TokenType::And, value: "and".to_string(), line: 0 };
-    let token2 = Token { token_type: TokenType::And, value: "and".to_string(), line: 1 };
+    let mut tokenizer = Scanner::new();
+    let variable = tokenizer.tokenize_string(
+        " and
+    and"
+        .to_string(),
+    );
+    let token = Token {
+        token_type: TokenType::And,
+        value: "and".to_string(),
+        line: 0,
+    };
+    let token2 = Token {
+        token_type: TokenType::And,
+        value: "and".to_string(),
+        line: 1,
+    };
     assert_eq!(vec![token, token2], variable)
 }
 
 #[test]
 fn handle_example() {
-    let mut tokenizer = Tokenizer::new();
+    let mut tokenizer = Scanner::new();
     let variable = tokenizer.tokenize_string("(( )){}".to_string());
-    let token1 = Token { token_type: TokenType::LeftParen, value: "(".to_string(), line: 0 };
-    let token2 = Token { token_type: TokenType::LeftParen, value: "(".to_string(), line: 0 };
-    let token3 = Token { token_type: TokenType::RightParen, value: ")".to_string(), line: 0 };
-    let token4 = Token { token_type: TokenType::RightParen, value: ")".to_string(), line: 0 };
-    let token5 = Token { token_type: TokenType::LeftBrace, value: "{".to_string(), line: 0 };
-    let token6 = Token { token_type: TokenType::RightBrace, value: "}".to_string(), line: 0 };
-    assert_eq!(vec![token1, token2, token3, token4, token5, token6], variable)
+    let token1 = Token {
+        token_type: TokenType::LeftParen,
+        value: "(".to_string(),
+        line: 0,
+    };
+    let token2 = Token {
+        token_type: TokenType::LeftParen,
+        value: "(".to_string(),
+        line: 0,
+    };
+    let token3 = Token {
+        token_type: TokenType::RightParen,
+        value: ")".to_string(),
+        line: 0,
+    };
+    let token4 = Token {
+        token_type: TokenType::RightParen,
+        value: ")".to_string(),
+        line: 0,
+    };
+    let token5 = Token {
+        token_type: TokenType::LeftBrace,
+        value: "{".to_string(),
+        line: 0,
+    };
+    let token6 = Token {
+        token_type: TokenType::RightBrace,
+        value: "}".to_string(),
+        line: 0,
+    };
+    assert_eq!(
+        vec![token1, token2, token3, token4, token5, token6],
+        variable
+    )
 }
 
 #[test]
 fn tokenize_numeric() {
-    let mut tokenizer = Tokenizer::new();
+    let mut tokenizer = Scanner::new();
     let variable = tokenizer.tokenize_string(" a 1".to_string());
-    let token = Token { token_type: TokenType::Identifier, value: "a".to_string(), line: 0 };
-    let token2 = Token { token_type: TokenType::Number, value: "1".to_string(), line: 0 };
+    let token = Token {
+        token_type: TokenType::Identifier,
+        value: "a".to_string(),
+        line: 0,
+    };
+    let token2 = Token {
+        token_type: TokenType::Number,
+        value: "1".to_string(),
+        line: 0,
+    };
     assert_eq!(vec![token, token2], variable)
 }
 
 #[test]
 fn tokenize_string_empty() {
-    let mut tokenizer = Tokenizer::new();
+    let mut tokenizer = Scanner::new();
     let variable = tokenizer.tokenize_string(" \"\"".to_string());
-    let token = Token { token_type: TokenType::String, value: "".to_string(), line: 0 };
+    let token = Token {
+        token_type: TokenType::String,
+        value: "".to_string(),
+        line: 0,
+    };
     assert_eq!(vec![token], variable)
 }
 
 #[test]
 fn tokenize_string_multiline() {
-    let mut tokenizer = Tokenizer::new();
-    let variable = tokenizer.tokenize_string(" \"
-    \"".to_string());
+    let mut tokenizer = Scanner::new();
+    let variable = tokenizer.tokenize_string(
+        " \"
+    \""
+        .to_string(),
+    );
     let token = Token {
         token_type: TokenType::String,
         value: "
-    ".to_string(),
+    "
+        .to_string(),
         line: 0,
     };
     assert_eq!(vec![token], variable)
@@ -438,7 +561,7 @@ fn tokenize_string_multiline() {
 
 #[test]
 fn tokenize_string_throws_unterminated_string() {
-    let mut tokenizer = Tokenizer::new();
+    let mut tokenizer = Scanner::new();
     let variable = tokenizer.tokenize_string(" \"".to_string());
     assert_eq!(Vec::<Token>::new(), variable)
 }

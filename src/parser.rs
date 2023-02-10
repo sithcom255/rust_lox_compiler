@@ -1,2 +1,6 @@
+use crate::token::Token;
 
-struct Parser {}
+struct Parser {
+    tokens: Vec<Token>,
+    current: usize,
+}
