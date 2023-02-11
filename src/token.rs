@@ -140,7 +140,7 @@ impl Scanner {
                 Some(TokenType::Space) => {
                     continue;
                 }
-                Some(value) => {
+                Some(_value) => {
                     tokens.push(Token {
                         token_type: TokenType::Slash,
                         value: "/".to_string(),

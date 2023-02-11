@@ -1,31 +1,37 @@
+use std::fmt::Debug;
+
 pub trait Expression {
-    fn accept<T: Visitor + ?Sized>(&mut self, visitor: &T);
+    fn accept(& self, visitor: Box<dyn Visitor>);
 }
 
-pub trait Visitor {
-    fn execute_for_expr(&self, object: &impl Expression);
+#[derive(Debug)]
+pub struct Expr {
+    value: String,
 }
-
-pub struct Expr {}
 
 impl Expression for Expr {
-    fn accept<T: Visitor + ?Sized>(&mut self, visitor: &T) {
-        visitor.execute_for_expr(self);
+    fn accept(&self, visitor: Box<dyn Visitor>) {
+        visitor.execute_for_expr( self);
+
     }
 }
 
+pub trait Visitor {
+    fn execute_for_expr(&self, object: & Expr);
+}
 
 struct HelloWorldVisitor {}
 
-impl Visitor for HelloWorldVisitor{
-    fn execute_for_expr(&self, object: &impl Expression) {
-        println!("Hello-world")
+impl Visitor for HelloWorldVisitor {
+    fn execute_for_expr(&self, object:& Expr) {
+        println!("Hello-world {}", object.value);
     }
 }
 
 #[test]
 fn visitor_test() {
-    let mut expr = Expr {};
+    let mut expr = Expr { value: String::from("here") };
     let visitor = HelloWorldVisitor {};
-    expr.accept(&visitor)
+    let x = expr.accept(Box::new(visitor));
+    println!("{:?}", x)
 }
