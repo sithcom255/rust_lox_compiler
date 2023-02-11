@@ -70,13 +70,13 @@ impl Expression for GroupingExpr {
     }
 }
 
-pub struct BinaryExpr<'a> {
-    pub token: &'a Token,
+pub struct BinaryExpr {
+    pub token:  Token,
     pub rhs: Box<dyn Expression>,
     pub lhs: Box<dyn Expression>,
 }
 
-impl Debug for BinaryExpr<'_> {
+impl Debug for BinaryExpr {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("BinaryExpr")
             .field("token", &self.token)
@@ -86,7 +86,7 @@ impl Debug for BinaryExpr<'_> {
     }
 }
 
-impl Expression for BinaryExpr<'_> {
+impl Expression for BinaryExpr {
     fn accept(&self, visitor: Box<dyn Visitor>) {
         visitor.execute_for_binary(self);
     }

@@ -1,3 +1,4 @@
+use std::ops::Deref;
 use std::ptr::eq;
 use crate::token::{Token, TokenType};
 use crate::expressions::expression;
@@ -7,41 +8,38 @@ struct Parser {
     tokens: Vec<Token>,
     current: usize,
 
-
 }
 
 impl Parser {
-    fn expression(&mut self) -> Option<Expr>  {
+    fn expression(&mut self) -> Option<Box<dyn Expression>> {
         let equality = self.equality();
 
         let expr = Expr {
             value: "".to_string(),
-            equality: Some(Box::new(equality.unwrap())),
+            equality: Some(equality.unwrap()),
         };
-        Some(expr)
+        Some(Box::new(expr))
     }
 
     fn equality(&mut self) -> Option<Box<dyn Expression>> {
-        let rhs = self.comparison().or_else("This is bad");
+        let mut lhs = self.comparison().unwrap();
 
         while match self.tokens[self.current].token_type {
             TokenType::BangEqual |
-            TokenType::EqualEqual => {
-                let token = &self.tokens[self.current];
-                self.advance();
-                let rhs = self.comparison().ok_or("This should be a comparison");
-                BinaryExpr { token, rhs: Box::new(rhs.unwrap()),  lhs: Box::new(rhs.unwrap()) };
-                true
-            },
-            _ =>  false,
+            TokenType::EqualEqual => true,
+            _ => false,
         } {
-
+            // let token = ;
+            let rhs = self.comparison().unwrap();
+            let token = self.tokens[self.current].clone();
+            lhs = Box::new(BinaryExpr { token, rhs, lhs });
+            self.advance();
         }
-        None
+        Some(lhs)
     }
 
-    fn comparison(&mut self) -> Option<Box<dyn Expression>>{
-        self.comparison()
+    fn comparison(&mut self) -> Option<Box<dyn Expression>> {
+
     }
 
     fn term(&mut self) {
@@ -57,11 +55,14 @@ impl Parser {
     }
 
     fn primary(&mut self) -> LiteralExpr {
-        LiteralExpr { token: Token {
-            token_type: TokenType::LeftParen,
+        LiteralExpr {
+            token: Token {
+                token_type: TokenType::LeftParen,
+                value: "".to_string(),
+                line: 0,
+            },
             value: "".to_string(),
-            line: 0,
-        }, value: "".to_string() }
+        }
     }
 
 
@@ -70,5 +71,31 @@ impl Parser {
     }
 }
 
+#[test]
+fn equality_test() {
+    let mut parser = Parser { tokens: get_bang_equal_tokens(), current: 0 };
+    let option = parser.equality();
+    println!("{:?}", option.unwrap())
+}
 
+fn get_bang_equal_tokens() -> Vec<Token> {
+    let token = Token {
+        token_type: TokenType::LeftParen,
+        value: "".to_string(),
+        line: 0,
+    };
 
+    let bang_equal = Token {
+        token_type: TokenType::BangEqual,
+        value: "!=".to_string(),
+        line: 0,
+    };
+
+    let second_comparison = Token {
+        token_type: TokenType::LeftParen,
+        value: "".to_string(),
+        line: 0,
+    };
+
+    vec!(token, bang_equal, second_comparison)
+}
