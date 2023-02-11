@@ -80,7 +80,7 @@ impl Debug for BinaryExpr {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("BinaryExpr")
             .field("token", &self.token)
-            .field("rhs", &self.lhs)
+            .field("lhs", &self.lhs)
             .field("rhs", &self.rhs)
             .finish()
     }

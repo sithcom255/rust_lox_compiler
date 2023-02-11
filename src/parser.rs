@@ -7,6 +7,7 @@ use crate::expressions::expression::{BinaryExpr, Comparison, Equality, Expr, Exp
 struct Parser {
     tokens: Vec<Token>,
     current: usize,
+    size: usize,
 
 }
 
@@ -24,26 +25,46 @@ impl Parser {
     fn equality(&mut self) -> Option<Box<dyn Expression>> {
         let mut lhs = self.comparison().unwrap();
 
-        while match self.tokens[self.current].token_type {
+        while self.current < self.size && match self.tokens[self.current].token_type {
             TokenType::BangEqual |
             TokenType::EqualEqual => true,
             _ => false,
         } {
-            // let token = ;
-            let rhs = self.comparison().unwrap();
             let token = self.tokens[self.current].clone();
-            lhs = Box::new(BinaryExpr { token, rhs, lhs });
             self.advance();
+            let rhs = self.comparison().unwrap();
+            lhs = Box::new(BinaryExpr { token, rhs, lhs });
         }
         Some(lhs)
     }
 
     fn comparison(&mut self) -> Option<Box<dyn Expression>> {
-
+        let mut lhs = self.term().unwrap();
+        self.advance();
+        while self.current < self.size && match self.tokens[self.current].token_type {
+            TokenType::Greater |
+            TokenType::GreaterEqual |
+            TokenType::Less |
+            TokenType::LessEqual => true,
+            _ => false,
+        } {
+            let rhs = self.comparison().unwrap();
+            let token = self.tokens[self.current].clone();
+            lhs = Box::new(BinaryExpr { token, rhs, lhs });
+            self.advance();
+        };
+        Some(lhs)
     }
 
-    fn term(&mut self) {
-        // self.comparison()
+    fn term(&mut self) -> Option<Box<dyn Expression>> {
+        Some(Box::new(LiteralExpr {
+            token: Token {
+                token_type: TokenType::LeftParen,
+                value: "".to_string(),
+                line: 0,
+            },
+            value: "".to_string(),
+        }))
     }
 
     fn factor(&mut self) {
@@ -73,7 +94,9 @@ impl Parser {
 
 #[test]
 fn equality_test() {
-    let mut parser = Parser { tokens: get_bang_equal_tokens(), current: 0 };
+    let vec = get_bang_equal_tokens();
+    let size = vec.len();
+    let mut parser = Parser { tokens: vec, current: 0, size: size };
     let option = parser.equality();
     println!("{:?}", option.unwrap())
 }
