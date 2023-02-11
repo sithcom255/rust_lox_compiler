@@ -55,9 +55,9 @@ pub enum TokenType {
 
 #[derive(Debug, PartialEq)]
 pub struct Token {
-    token_type: TokenType,
-    value: String,
-    line: usize,
+    pub token_type: TokenType,
+    pub value: String,
+    pub line: usize,
 }
 
 pub struct Scanner {
