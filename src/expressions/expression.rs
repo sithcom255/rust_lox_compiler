@@ -27,22 +27,22 @@ impl Debug for Expr {
     }
 }
 
-pub struct Equality {
-    pub token_type: TokenType,
+pub struct Equality<'a> {
+    pub token: &'a Token,
     pub value: String,
 
 }
 
-impl Expression for Equality {
+impl Expression for Equality<'_> {
     fn accept(&self, visitor: Box<dyn Visitor>) {
         visitor.execute_for_equality(self)
     }
 }
 
-impl Debug for Equality {
+impl Debug for Equality<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Equality")
-            .field("token_type", &self.token_type)
+            .field("token", &self.token)
             .finish()
     }
 }
@@ -70,13 +70,13 @@ impl Expression for GroupingExpr {
     }
 }
 
-pub struct BinaryExpr {
-    pub token: Token,
+pub struct BinaryExpr<'a> {
+    pub token: &'a Token,
     pub rhs: Box<dyn Expression>,
     pub lhs: Box<dyn Expression>,
 }
 
-impl Debug for BinaryExpr {
+impl Debug for BinaryExpr<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("BinaryExpr")
             .field("token", &self.token)
@@ -86,7 +86,7 @@ impl Debug for BinaryExpr {
     }
 }
 
-impl Expression for BinaryExpr {
+impl Expression for BinaryExpr<'_> {
     fn accept(&self, visitor: Box<dyn Visitor>) {
         visitor.execute_for_binary(self);
     }

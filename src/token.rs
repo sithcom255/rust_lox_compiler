@@ -1,7 +1,7 @@
 use crate::log::Log;
 use std::fs;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum TokenType {
     // single character tokens
     LeftParen,
