@@ -2,7 +2,7 @@ use std::ops::Deref;
 use std::ptr::eq;
 use crate::token::{Token, TokenType};
 use crate::expressions::expression;
-use crate::expressions::expression::{BinaryExpr, Comparison, Equality, Expr, Expression, LiteralExpr};
+use crate::expressions::expression::{BinaryExpr, Comparison, Equality, Expr, Expression, GroupingExpr, LiteralExpr, UnaryExpr};
 
 struct Parser {
     tokens: Vec<Token>,
@@ -40,7 +40,7 @@ impl Parser {
 
     fn comparison(&mut self) -> Option<Box<dyn Expression>> {
         let mut lhs = self.term().unwrap();
-        self.advance();
+
         while self.current < self.size && match self.tokens[self.current].token_type {
             TokenType::Greater |
             TokenType::GreaterEqual |
@@ -48,42 +48,92 @@ impl Parser {
             TokenType::LessEqual => true,
             _ => false,
         } {
-            let rhs = self.comparison().unwrap();
             let token = self.tokens[self.current].clone();
-            lhs = Box::new(BinaryExpr { token, rhs, lhs });
             self.advance();
+            let rhs = self.term().unwrap();
+            lhs = Box::new(BinaryExpr { token, rhs, lhs });
         };
         Some(lhs)
     }
 
     fn term(&mut self) -> Option<Box<dyn Expression>> {
-        Some(Box::new(LiteralExpr {
-            token: Token {
-                token_type: TokenType::LeftParen,
-                value: "".to_string(),
-                line: 0,
-            },
-            value: "".to_string(),
-        }))
+        let mut lhs = self.factor().unwrap();
+
+        while self.current < self.size && match self.tokens[self.current].token_type {
+            TokenType::Minus |
+            TokenType::Plus => true,
+            _ => false,
+        } {
+            let token = self.tokens[self.current].clone();
+            self.advance();
+            let rhs = self.factor().unwrap();
+            lhs = Box::new(BinaryExpr { token, rhs, lhs });
+        };
+        Some(lhs)
     }
 
-    fn factor(&mut self) {
-        // self.comparison()
+    fn factor(&mut self) -> Option<Box<dyn Expression>> {
+        let mut lhs = self.unary().unwrap();
+
+        while self.current < self.size && match self.tokens[self.current].token_type {
+            TokenType::Slash |
+            TokenType::Star => true,
+            _ => false,
+        } {
+            let token = self.tokens[self.current].clone();
+            self.advance();
+            let rhs = self.unary().unwrap();
+            lhs = Box::new(BinaryExpr { token, rhs, lhs });
+        };
+        Some(lhs)
     }
 
-    fn unary(&mut self) {
-        // self.comparison()
+    fn unary(&mut self) -> Option<Box<dyn Expression>> {
+        while self.current < self.size && match self.tokens[self.current].token_type {
+            TokenType::Bang |
+            TokenType::Minus => true,
+            _ => false,
+        } {
+            let token = self.tokens[self.current].clone();
+            self.advance();
+            let rhs = self.unary().unwrap();
+            return Some(Box::new(UnaryExpr { token, rhs }));
+        };
+        return self.primary();
     }
 
-    fn primary(&mut self) -> LiteralExpr {
-        LiteralExpr {
-            token: Token {
-                token_type: TokenType::LeftParen,
-                value: "".to_string(),
-                line: 0,
-            },
-            value: "".to_string(),
-        }
+    fn primary(&mut self) -> Option<Box<dyn Expression>> {
+        let primary: Box<dyn Expression> = match self.tokens[self.current].token_type {
+            TokenType::False |
+            TokenType::True |
+            TokenType::Nil => {
+                let token = self.tokens[self.current].clone();
+                self.advance();
+                Box::new(LiteralExpr { token, value: "".to_string() })
+            }
+            TokenType::String |
+            TokenType::Number => {
+                let token = self.tokens[self.current].clone();
+                self.advance();
+                Box::new(LiteralExpr { token, value: "".to_string() })
+            }
+            TokenType::LeftParen => {
+                self.advance();
+                let expression = self.expression().unwrap();
+                if self.tokens[self.current].token_type != TokenType::RightParen {
+                    println!("Error, missing right brace {:?}", self.tokens[self.current])
+                }
+                self.advance();
+                Box::new(GroupingExpr { value: expression })
+            }
+            value @ _ => {
+                let token = self.tokens[self.current].clone();
+
+                self.advance();
+                Box::new(LiteralExpr{ token, value: "trouble here".to_string() })
+            }
+        };
+        Some(primary)
     }
 
 
@@ -103,8 +153,8 @@ fn equality_test() {
 
 fn get_bang_equal_tokens() -> Vec<Token> {
     let token = Token {
-        token_type: TokenType::LeftParen,
-        value: "".to_string(),
+        token_type: TokenType::Number,
+        value: "1".to_string(),
         line: 0,
     };
 
@@ -115,8 +165,8 @@ fn get_bang_equal_tokens() -> Vec<Token> {
     };
 
     let second_comparison = Token {
-        token_type: TokenType::LeftParen,
-        value: "".to_string(),
+        token_type: TokenType::Number,
+        value: "2".to_string(),
         line: 0,
     };
 

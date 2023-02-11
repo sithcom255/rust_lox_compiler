@@ -94,14 +94,14 @@ impl Expression for BinaryExpr {
 
 pub struct UnaryExpr {
     pub token: Token,
-    pub lhs: Box<dyn Expression>,
+    pub rhs: Box<dyn Expression>,
 }
 
 impl Debug for UnaryExpr {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("UnaryExpr")
             .field("token", &self.token)
-            .field("rhs", &self.lhs)
+            .field("rhs", &self.rhs)
             .finish()
     }
 }
