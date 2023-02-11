@@ -1,8 +1,5 @@
-use std::ops::Deref;
-use std::ptr::eq;
 use crate::token::{Token, TokenType};
-use crate::expressions::expression;
-use crate::expressions::expression::{BinaryExpr, Comparison, Equality, Expr, Expression, GroupingExpr, LiteralExpr, UnaryExpr};
+use crate::expressions::expression::{BinaryExpr, Expr, Expression, GroupingExpr, LiteralExpr, UnaryExpr};
 
 struct Parser {
     tokens: Vec<Token>,
@@ -126,7 +123,7 @@ impl Parser {
                 self.advance();
                 Box::new(GroupingExpr { value: expression })
             }
-            value @ _ => {
+            _ => {
                 let token = self.tokens[self.current].clone();
 
                 self.advance();

@@ -139,6 +139,6 @@ fn visitor_test() {
         equality: None,
     };
     let visitor = HelloWorldVisitor {};
-    let x = expr.accept(Box::new(visitor));
+    expr.accept(Box::new(visitor));
     println!("{:?}", expr)
 }
