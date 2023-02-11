@@ -134,7 +134,7 @@ impl Debug for LiteralExpr {
 
 #[test]
 fn visitor_test() {
-    let mut expr = Expr {
+    let expr = Expr {
         value: String::from("here"),
         equality: None,
     };

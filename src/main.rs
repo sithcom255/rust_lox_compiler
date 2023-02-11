@@ -1,10 +1,11 @@
+use crate::token::Scanner;
+
 mod expressions;
 mod log;
 mod parser;
-mod printer;
 mod token;
 
 fn main() {
-
-    // parser.parse(file);
+    let mut scanner = Scanner::new();
+    scanner.tokenize_file(&"helloo");
 }
