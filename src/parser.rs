@@ -1,5 +1,5 @@
 use crate::token::{Token, TokenType};
-use crate::expressions::expression::{BinaryExpr, Expr, Expression, GroupingExpr, LiteralExpr, UnaryExpr};
+use crate::expressions::expression::{BinaryExpr, Expr, Expression, ExpressionRes, GroupingExpr, LiteralExpr, UnaryExpr};
 
 struct Parser {
     tokens: Vec<Token>,
@@ -9,17 +9,15 @@ struct Parser {
 }
 
 impl Parser {
-    fn expression(&mut self) -> Option<Box<dyn Expression>> {
-        let equality = self.equality();
-
+    fn expression(&mut self) -> Option<Box<dyn Expression<ExpressionRes>>> {
         let expr = Expr {
             value: "".to_string(),
-            equality: Some(equality.unwrap()),
+            equality: Some(self.equality().unwrap()),
         };
         Some(Box::new(expr))
     }
 
-    fn equality(&mut self) -> Option<Box<dyn Expression>> {
+    fn equality(&mut self) -> Option<Box<dyn Expression<ExpressionRes>>> {
         let mut lhs = self.comparison().unwrap();
 
         while self.current < self.size && match self.tokens[self.current].token_type {
@@ -35,7 +33,7 @@ impl Parser {
         Some(lhs)
     }
 
-    fn comparison(&mut self) -> Option<Box<dyn Expression>> {
+    fn comparison(&mut self) -> Option<Box<dyn Expression<ExpressionRes>>> {
         let mut lhs = self.term().unwrap();
 
         while self.current < self.size && match self.tokens[self.current].token_type {
@@ -53,7 +51,7 @@ impl Parser {
         Some(lhs)
     }
 
-    fn term(&mut self) -> Option<Box<dyn Expression>> {
+    fn term(&mut self) -> Option<Box<dyn Expression<ExpressionRes>>> {
         let mut lhs = self.factor().unwrap();
 
         while self.current < self.size && match self.tokens[self.current].token_type {
@@ -69,7 +67,7 @@ impl Parser {
         Some(lhs)
     }
 
-    fn factor(&mut self) -> Option<Box<dyn Expression>> {
+    fn factor(&mut self) -> Option<Box<dyn Expression<ExpressionRes>>> {
         let mut lhs = self.unary().unwrap();
 
         while self.current < self.size && match self.tokens[self.current].token_type {
@@ -85,7 +83,7 @@ impl Parser {
         Some(lhs)
     }
 
-    fn unary(&mut self) -> Option<Box<dyn Expression>> {
+    fn unary(&mut self) -> Option<Box<dyn Expression<ExpressionRes>>> {
         while self.current < self.size && match self.tokens[self.current].token_type {
             TokenType::Bang |
             TokenType::Minus => true,
@@ -99,20 +97,20 @@ impl Parser {
         return self.primary();
     }
 
-    fn primary(&mut self) -> Option<Box<dyn Expression>> {
-        let primary: Box<dyn Expression> = match self.tokens[self.current].token_type {
+    fn primary(&mut self) -> Option<Box<dyn Expression<ExpressionRes>>> {
+        let primary: Box<dyn Expression<ExpressionRes>> = match self.tokens[self.current].token_type {
             TokenType::False |
             TokenType::True |
             TokenType::Nil => {
-                let token = self.tokens[self.current].clone();
+                let token_type = self.tokens[self.current].clone().token_type;
                 self.advance();
-                Box::new(LiteralExpr { token, value: "".to_string() })
+                Box::new(LiteralExpr { token_type, value: "".to_string() })
             }
             TokenType::String |
             TokenType::Number => {
-                let token = self.tokens[self.current].clone();
+                let token_type = self.tokens[self.current].clone().token_type;
                 self.advance();
-                Box::new(LiteralExpr { token, value: "".to_string() })
+                Box::new(LiteralExpr { token_type, value: "".to_string() })
             }
             TokenType::LeftParen => {
                 self.advance();
@@ -124,10 +122,10 @@ impl Parser {
                 Box::new(GroupingExpr { value: expression })
             }
             _ => {
-                let token = self.tokens[self.current].clone();
+                let token_type = self.tokens[self.current].clone().token_type;
 
                 self.advance();
-                Box::new(LiteralExpr{ token, value: "trouble here".to_string() })
+                Box::new(LiteralExpr{ token_type, value: "trouble here".to_string() })
             }
         };
         Some(primary)

@@ -2,20 +2,20 @@ use std::fmt::{Debug, Formatter};
 use crate::expressions::visitor::{HelloWorldVisitor, Visitor};
 use crate::token::{Token, TokenType};
 
-pub trait Expression: Debug {
-    fn accept(&self, visitor: Box<dyn Visitor>);
+pub trait Expression<T>: Debug {
+    fn accept(&self, visitor: Box<dyn Visitor<T>>) -> T;
 }
 
 
 pub struct Expr {
     pub value: String,
-    pub equality: Option<Box<dyn Expression>>,
+    pub equality: Option<Box<dyn Expression<ExpressionRes>>>,
 }
 
 
-impl Expression for Expr {
-    fn accept(&self, visitor: Box<dyn Visitor>) {
-        visitor.execute_for_expr(self);
+impl Expression<ExpressionRes> for Expr {
+    fn accept(&self, mut visitor: Box<dyn Visitor<ExpressionRes>>) -> ExpressionRes {
+        visitor.execute_for_expr(self)
     }
 }
 
@@ -23,23 +23,23 @@ impl Debug for Expr {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let string = "Expr";
         f.debug_struct(string)
-           .field("equality", &self.equality).finish()
+            .field("equality", &self.equality).finish()
     }
 }
 
-pub struct Equality<'a> {
-    pub token: &'a Token,
+pub struct Equality {
+    pub token: Token,
     pub value: String,
 
 }
 
-impl Expression for Equality<'_> {
-    fn accept(&self, visitor: Box<dyn Visitor>) {
+impl Expression<ExpressionRes> for Equality {
+    fn accept(&self, mut visitor: Box<dyn Visitor<ExpressionRes>>) -> ExpressionRes {
         visitor.execute_for_equality(self)
     }
 }
 
-impl Debug for Equality<'_> {
+impl Debug for Equality {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Equality")
             .field("token", &self.token)
@@ -53,7 +53,7 @@ pub struct Comparison {
 }
 
 pub struct GroupingExpr {
-    pub value: Box<dyn Expression>
+    pub value: Box<dyn Expression<ExpressionRes>>,
 }
 
 impl Debug for GroupingExpr {
@@ -64,16 +64,16 @@ impl Debug for GroupingExpr {
     }
 }
 
-impl Expression for GroupingExpr {
-    fn accept(&self, visitor: Box<dyn Visitor>) {
-        visitor.execute_for_grouping(self);
+impl Expression<ExpressionRes> for GroupingExpr {
+    fn accept(&self, visitor: Box<dyn Visitor<ExpressionRes>>) -> ExpressionRes {
+        visitor.execute_for_grouping(self)
     }
 }
 
 pub struct BinaryExpr {
-    pub token:  Token,
-    pub rhs: Box<dyn Expression>,
-    pub lhs: Box<dyn Expression>,
+    pub token: Token,
+    pub rhs: Box<dyn Expression<ExpressionRes>>,
+    pub lhs: Box<dyn Expression<ExpressionRes>>,
 }
 
 impl Debug for BinaryExpr {
@@ -86,15 +86,15 @@ impl Debug for BinaryExpr {
     }
 }
 
-impl Expression for BinaryExpr {
-    fn accept(&self, visitor: Box<dyn Visitor>) {
-        visitor.execute_for_binary(self);
+impl Expression<ExpressionRes> for BinaryExpr {
+    fn accept(&self, visitor: Box<dyn Visitor<ExpressionRes>>) -> ExpressionRes {
+        visitor.execute_for_binary(self)
     }
 }
 
 pub struct UnaryExpr {
     pub token: Token,
-    pub rhs: Box<dyn Expression>,
+    pub rhs: Box<dyn Expression<ExpressionRes>>,
 }
 
 impl Debug for UnaryExpr {
@@ -106,39 +106,101 @@ impl Debug for UnaryExpr {
     }
 }
 
-impl Expression for UnaryExpr {
-    fn accept(&self, visitor: Box<dyn Visitor>) {
-        visitor.execute_for_unary(self);
+impl Expression<ExpressionRes> for UnaryExpr {
+    fn accept(&self, visitor: Box<dyn Visitor<ExpressionRes>>) -> ExpressionRes {
+        visitor.execute_for_unary(self)
     }
 }
 
 pub struct LiteralExpr {
-    pub token: Token,
+    pub token_type: TokenType,
     pub value: String,
 }
 
-impl Expression for LiteralExpr {
-    fn accept(&self, visitor: Box<dyn Visitor>) {
-        visitor.execute_for_literal(self);
+impl Expression<ExpressionRes> for LiteralExpr {
+    fn accept(&self, visitor: Box<dyn Visitor<ExpressionRes>>) -> ExpressionRes {
+        visitor.execute_for_literal(self)
     }
 }
 
 impl Debug for LiteralExpr {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("LiteralExpr")
-            .field("token", &self.token)
+            .field("token", &self.token_type)
             .field("value", &self.value)
             .finish()
     }
 }
 
+#[derive(Debug)]
+pub struct ExpressionRes {
+    pub(crate) token_type: TokenType,
+    pub(crate) str: String,
+    pub(crate) number: isize,
+    pub(crate) boolean: bool,
+}
+
+impl ExpressionRes {
+    pub fn from_str(str: String) -> ExpressionRes {
+        ExpressionRes {
+            token_type: TokenType::String,
+            str,
+            number: 0,
+            boolean: false,
+        }
+    }
+
+    pub fn from_number(number: isize) -> ExpressionRes {
+        ExpressionRes {
+            token_type: TokenType::Number,
+            str: String::new(),
+            number,
+            boolean: false,
+        }
+    }
+
+    pub fn from_bool(boolean: bool) -> ExpressionRes {
+        ExpressionRes {
+            token_type: TokenType::Identifier,
+            str: String::new(),
+            number: 0,
+            boolean,
+        }
+    }
+
+    pub fn from_none() -> ExpressionRes {
+        ExpressionRes {
+            token_type: TokenType::Nil,
+            str: "".to_string(),
+            number: 0,
+            boolean: false,
+        }
+    }
+}
+
 #[test]
 fn visitor_test() {
+    let token = Token {
+        token_type: TokenType::Minus,
+        value: "".to_string(),
+        line: 0,
+    };
+    let equality = BinaryExpr {
+        token,
+        rhs: Box::new(LiteralExpr {
+            token_type: TokenType::Number,
+            value: "10".to_string(),
+        }),
+        lhs: Box::new(LiteralExpr {
+            token_type: TokenType::Number,
+            value: "1".to_string(),
+        }),
+    };
     let expr = Expr {
         value: String::from("here"),
-        equality: None,
+        equality: Some(Box::new(equality)),
     };
     let visitor = HelloWorldVisitor {};
-    expr.accept(Box::new(visitor));
-    println!("{:?}", expr)
+    let res = expr.accept(Box::new(visitor));
+    println!("{:?}", res)
 }
