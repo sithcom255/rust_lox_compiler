@@ -6,6 +6,7 @@ mod expressions;
 mod log;
 mod parser;
 mod token;
+mod token_test;
 
 fn main() {
     let mut scanner = Scanner::new();
