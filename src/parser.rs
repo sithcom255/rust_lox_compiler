@@ -1,7 +1,7 @@
 use crate::token::{Token, TokenType};
 use crate::expressions::expression::{BinaryExpr, Expr, Expression, ExpressionRes, GroupingExpr, LiteralExpr, UnaryExpr};
 
-struct Parser {
+pub struct Parser {
     tokens: Vec<Token>,
     current: usize,
     size: usize,
@@ -9,7 +9,16 @@ struct Parser {
 }
 
 impl Parser {
-    fn expression(&mut self) -> Option<Box<dyn Expression<ExpressionRes>>> {
+    pub fn new(tokens: Vec<Token>) -> Parser {
+        let i = tokens.len();
+        Parser {
+            tokens,
+            current: 0,
+            size: i,
+        }
+    }
+
+    pub fn expression(&mut self) -> Option<Box<dyn Expression<ExpressionRes>>> {
         let expr = Expr {
             value: "".to_string(),
             equality: Some(self.equality().unwrap()),
@@ -17,7 +26,7 @@ impl Parser {
         Some(Box::new(expr))
     }
 
-    fn equality(&mut self) -> Option<Box<dyn Expression<ExpressionRes>>> {
+    pub fn equality(&mut self) -> Option<Box<dyn Expression<ExpressionRes>>> {
         let mut lhs = self.comparison().unwrap();
 
         while self.current < self.size && match self.tokens[self.current].token_type {
@@ -102,15 +111,15 @@ impl Parser {
             TokenType::False |
             TokenType::True |
             TokenType::Nil => {
-                let token_type = self.tokens[self.current].clone().token_type;
+                let token = self.tokens[self.current].clone();
                 self.advance();
-                Box::new(LiteralExpr { token_type, value: "".to_string() })
+                Box::new(LiteralExpr { token_type: token.token_type, value: token.value})
             }
             TokenType::String |
             TokenType::Number => {
-                let token_type = self.tokens[self.current].clone().token_type;
+                let token = self.tokens[self.current].clone();;
                 self.advance();
-                Box::new(LiteralExpr { token_type, value: "".to_string() })
+                Box::new(LiteralExpr { token_type: token.token_type, value: token.value })
             }
             TokenType::LeftParen => {
                 self.advance();
@@ -125,7 +134,7 @@ impl Parser {
                 let token_type = self.tokens[self.current].clone().token_type;
 
                 self.advance();
-                Box::new(LiteralExpr{ token_type, value: "trouble here".to_string() })
+                Box::new(LiteralExpr { token_type, value: "trouble here".to_string() })
             }
         };
         Some(primary)

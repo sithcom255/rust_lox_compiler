@@ -1,2 +1,2 @@
-pub(crate) mod expression;
-mod visitor;
+pub mod expression;
+pub mod visitor;

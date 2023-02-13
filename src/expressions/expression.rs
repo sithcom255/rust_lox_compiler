@@ -1,5 +1,5 @@
 use std::fmt::{Debug, Formatter};
-use crate::expressions::visitor::{HelloWorldVisitor, Visitor};
+use crate::expressions::visitor::{ExpressionVisitor, Visitor};
 use crate::token::{Token, TokenType};
 
 pub trait Expression<T>: Debug {
@@ -134,16 +134,21 @@ impl Debug for LiteralExpr {
 
 #[derive(Debug)]
 pub struct ExpressionRes {
-    pub(crate) token_type: TokenType,
-    pub(crate) str: String,
-    pub(crate) number: isize,
-    pub(crate) boolean: bool,
+    pub type_: ExprResType,
+    pub str: String,
+    pub number: isize,
+    pub boolean: bool,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum ExprResType {
+    String, Number, Boolean, Nil
 }
 
 impl ExpressionRes {
     pub fn from_str(str: String) -> ExpressionRes {
         ExpressionRes {
-            token_type: TokenType::String,
+            type_: ExprResType::String,
             str,
             number: 0,
             boolean: false,
@@ -152,7 +157,7 @@ impl ExpressionRes {
 
     pub fn from_number(number: isize) -> ExpressionRes {
         ExpressionRes {
-            token_type: TokenType::Number,
+            type_: ExprResType::Number,
             str: String::new(),
             number,
             boolean: false,
@@ -161,7 +166,7 @@ impl ExpressionRes {
 
     pub fn from_bool(boolean: bool) -> ExpressionRes {
         ExpressionRes {
-            token_type: TokenType::Identifier,
+            type_: ExprResType::Boolean,
             str: String::new(),
             number: 0,
             boolean,
@@ -170,11 +175,15 @@ impl ExpressionRes {
 
     pub fn from_none() -> ExpressionRes {
         ExpressionRes {
-            token_type: TokenType::Nil,
+            type_: ExprResType::Nil,
             str: "".to_string(),
             number: 0,
             boolean: false,
         }
+    }
+
+    pub fn eq_type(&self, other: &ExpressionRes) -> bool {
+        return self.type_ == other.type_;
     }
 }
 
@@ -200,7 +209,7 @@ fn visitor_test() {
         value: String::from("here"),
         equality: Some(Box::new(equality)),
     };
-    let visitor = HelloWorldVisitor {};
+    let visitor = ExpressionVisitor {};
     let res = expr.accept(Box::new(visitor));
     println!("{:?}", res)
 }

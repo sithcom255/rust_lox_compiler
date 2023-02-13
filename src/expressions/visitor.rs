@@ -1,5 +1,5 @@
-use crate::expressions::expression::{Comparison, ExpressionRes, Equality, Expr, LiteralExpr, GroupingExpr, UnaryExpr, BinaryExpr};
-use crate::token::TokenType;
+use crate::expressions::expression::{Comparison, ExpressionRes, Equality, Expr, LiteralExpr, GroupingExpr, UnaryExpr, BinaryExpr, ExprResType, Expression};
+use crate::token::{Token, TokenType};
 
 
 pub trait Visitor<T> {
@@ -13,15 +13,15 @@ pub trait Visitor<T> {
 }
 
 #[derive(PartialEq, Copy, Clone)]
-pub struct HelloWorldVisitor {}
+pub struct ExpressionVisitor {}
 
-impl HelloWorldVisitor {
+impl ExpressionVisitor {
     fn execute_for_equality_(object: &Equality) {
         println!("Hello-world Equality {:?}", object.value);
     }
 }
 
-impl Visitor<ExpressionRes> for HelloWorldVisitor {
+impl Visitor<ExpressionRes> for ExpressionVisitor {
     fn execute_for_expr(&mut self, object: &Expr) -> ExpressionRes {
         let expression = object.equality.as_ref().unwrap();
         expression.accept(Box::new(*self))
@@ -39,30 +39,46 @@ impl Visitor<ExpressionRes> for HelloWorldVisitor {
     }
 
     fn execute_for_grouping(&self, object: &GroupingExpr) -> ExpressionRes {
-        println!("Hello-world term {:?}", object.value);
-        ExpressionRes::from_str(String::from(""))
+        let expression = object.value.as_ref();
+        expression.accept(Box::new(*self))
     }
 
     fn execute_for_binary(&self, object: &BinaryExpr) -> ExpressionRes {
-        let rhs = object.rhs.as_ref();
-        let rhs_res = rhs.accept(Box::new(*self));
-        let lhs = object.lhs.as_ref();
-        let lhs_res = lhs.accept(Box::new(*self));
+        let rhs_res = object.rhs.as_ref().accept(Box::new(*self));
+        let lhs_res = object.lhs.as_ref().accept(Box::new(*self));
 
-        match object.token.token_type {
-            TokenType::Minus => ExpressionRes::from_number(
-                lhs_res.number - rhs_res.number),
-            TokenType::Slash => ExpressionRes::from_number(
-                lhs_res.number / rhs_res.number),
-            TokenType::Star => ExpressionRes::from_number(
-                lhs_res.number * rhs_res.number),
-            _ => ExpressionRes::from_none()
+        if lhs_res.type_ == ExprResType::Number && lhs_res.eq_type(&rhs_res) {
+            match object.token.token_type {
+                TokenType::Minus => ExpressionRes::from_number(
+                    lhs_res.number - rhs_res.number),
+                TokenType::Slash => ExpressionRes::from_number(
+                    lhs_res.number / rhs_res.number),
+                TokenType::Star => ExpressionRes::from_number(
+                    lhs_res.number * rhs_res.number),
+                TokenType::Plus => ExpressionRes::from_number(
+                    lhs_res.number + rhs_res.number),
+                _ => ExpressionRes::from_none()
+            }
+        } else if lhs_res.type_ == ExprResType::String && lhs_res.eq_type(&rhs_res) {
+            match object.token.token_type {
+                TokenType::Plus => ExpressionRes::from_str(
+                    lhs_res.str + &*rhs_res.str),
+                _ => ExpressionRes::from_none(),
+            }
+        } else {
+            ExpressionRes::from_none()
         }
     }
 
     fn execute_for_unary(&self, object: &UnaryExpr) -> ExpressionRes {
-        println!("Hello-world unary {:?}", object);
-        ExpressionRes::from_str(String::from(""))
+        let rhs = object.rhs.as_ref();
+        let rhs_res = rhs.accept(Box::new(*self));
+
+        match (rhs_res.type_, object.token.token_type) {
+            (ExprResType::Number, TokenType::Minus) => ExpressionRes::from_number(-(rhs_res.number)),
+            (ExprResType::Boolean, TokenType::Bang) => ExpressionRes::from_bool(!(rhs_res.boolean)),
+            _ => ExpressionRes::from_none()
+        }
     }
 
     fn execute_for_literal(&self, object: &LiteralExpr) -> ExpressionRes {
@@ -71,13 +87,38 @@ impl Visitor<ExpressionRes> for HelloWorldVisitor {
         match token_type {
             TokenType::String => ExpressionRes::from_str(string),
             TokenType::Number => ExpressionRes::from_number(str::parse::<isize>(&string).unwrap()),
-            TokenType::False | TokenType::True => ExpressionRes::from_bool(str::parse::<bool>(&string).unwrap()),
-            _ => ExpressionRes {
-                token_type: TokenType::While,
-                str: "".to_string(),
-                number: 0,
-                boolean: false,
-            }
+            TokenType::False => ExpressionRes::from_bool(false),
+            TokenType::True => ExpressionRes::from_bool(true),
+            _ => ExpressionRes::from_none()
         }
     }
+}
+
+#[test]
+fn unary_bang() {
+    let expr = UnaryExpr {
+        token: Token {
+            token_type: TokenType::Bang,
+            value: "".to_string(),
+            line: 0,
+        },
+        rhs: Box::new(LiteralExpr { token_type: TokenType::False, value: "".to_string() }),
+    };
+    let visitor = ExpressionVisitor {};
+    assert!(expr.accept(Box::new(visitor)).boolean);
+}
+
+#[test]
+fn string_binary_plus() {
+    let expr = BinaryExpr {
+        token: Token {
+            token_type: TokenType::Plus,
+            value: "".to_string(),
+            line: 0,
+        },
+        lhs: Box::new(LiteralExpr { token_type: TokenType::String, value: "hello ".to_string() }),
+        rhs: Box::new(LiteralExpr { token_type: TokenType::String, value: "world".to_string() }),
+    };
+    let visitor = ExpressionVisitor {};
+    assert_eq!(expr.accept(Box::new(visitor)).str, "hello world");
 }

@@ -532,10 +532,10 @@ fn tokenize_numeric() {
 #[test]
 fn tokenize_string_empty() {
     let mut tokenizer = Scanner::new();
-    let variable = tokenizer.tokenize_string(" \"\"".to_string());
+    let variable = tokenizer.tokenize_string(" \"hello\"".to_string());
     let token = Token {
         token_type: TokenType::String,
-        value: "".to_string(),
+        value: "hello".to_string(),
         line: 0,
     };
     assert_eq!(vec![token], variable)
