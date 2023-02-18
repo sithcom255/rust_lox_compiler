@@ -1,5 +1,6 @@
 use crate::token::{Token, TokenType};
 use crate::expressions::expression::{BinaryExpr, Expr, Expression, ExpressionRes, GroupingExpr, LiteralExpr, UnaryExpr};
+use crate::statements::statement::{PrintStatement, Statement};
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -18,6 +19,38 @@ impl Parser {
         }
     }
 
+    pub fn program(&mut self) -> Vec<Box<dyn Statement>> {
+        let mut statements = Vec::new();
+        while  self.current < self.size && self.get_current().token_type != TokenType::EOF  {
+            match self.statement_get() {
+                Some(value) => statements.push(value),
+                None => continue,
+            };
+        };
+        statements
+    }
+
+    pub fn statement_get(&mut self) -> Option<Box<dyn Statement>> {
+        let statement;
+        match self.get_current().token_type {
+            TokenType::Print => statement = self.print_statement(),
+            _ => statement = self.expression_statement(),
+        }
+        statement
+    }
+
+    pub fn print_statement(&mut self) -> Option<Box<dyn Statement>> {
+        self.advance();
+        let expression = self.expression();
+        self.consume_until(TokenType::Semicolon);
+
+        Some(Box::new(PrintStatement { expr: expression.unwrap() }))
+    }
+    pub fn expression_statement(&mut self) -> Option<Box<dyn Statement>> {
+        self.consume_until(TokenType::Semicolon);
+        None
+    }
+
     pub fn expression(&mut self) -> Option<Box<dyn Expression<ExpressionRes>>> {
         let expr = Expr {
             value: "".to_string(),
@@ -29,12 +62,12 @@ impl Parser {
     pub fn equality(&mut self) -> Option<Box<dyn Expression<ExpressionRes>>> {
         let mut lhs = self.comparison().unwrap();
 
-        while self.current < self.size && match self.tokens[self.current].token_type {
+        while self.current < self.size && match self.get_current().token_type {
             TokenType::BangEqual |
             TokenType::EqualEqual => true,
             _ => false,
         } {
-            let token = self.tokens[self.current].clone();
+            let token = self.get_current().clone();
             self.advance();
             let rhs = self.comparison().unwrap();
             lhs = Box::new(BinaryExpr { token, rhs, lhs });
@@ -45,7 +78,7 @@ impl Parser {
     fn comparison(&mut self) -> Option<Box<dyn Expression<ExpressionRes>>> {
         let mut lhs = self.term().unwrap();
 
-        while self.current < self.size && match self.tokens[self.current].token_type {
+        while self.current < self.size && match self.get_current().token_type {
             TokenType::Greater |
             TokenType::GreaterEqual |
             TokenType::Less |
@@ -63,12 +96,12 @@ impl Parser {
     fn term(&mut self) -> Option<Box<dyn Expression<ExpressionRes>>> {
         let mut lhs = self.factor().unwrap();
 
-        while self.current < self.size && match self.tokens[self.current].token_type {
+        while self.current < self.size && match self.get_current().token_type {
             TokenType::Minus |
             TokenType::Plus => true,
             _ => false,
         } {
-            let token = self.tokens[self.current].clone();
+            let token = self.get_current().clone();
             self.advance();
             let rhs = self.factor().unwrap();
             lhs = Box::new(BinaryExpr { token, rhs, lhs });
@@ -113,11 +146,11 @@ impl Parser {
             TokenType::Nil => {
                 let token = self.tokens[self.current].clone();
                 self.advance();
-                Box::new(LiteralExpr { token_type: token.token_type, value: token.value})
+                Box::new(LiteralExpr { token_type: token.token_type, value: token.value })
             }
             TokenType::String |
             TokenType::Number => {
-                let token = self.tokens[self.current].clone();;
+                let token = self.tokens[self.current].clone();
                 self.advance();
                 Box::new(LiteralExpr { token_type: token.token_type, value: token.value })
             }
@@ -131,7 +164,7 @@ impl Parser {
                 Box::new(GroupingExpr { value: expression })
             }
             _ => {
-                let token_type = self.tokens[self.current].clone().token_type;
+                let token_type = self.get_current().clone().token_type;
 
                 self.advance();
                 Box::new(LiteralExpr { token_type, value: "trouble here".to_string() })
@@ -141,8 +174,21 @@ impl Parser {
     }
 
 
+    fn get_current(&mut self) -> &Token {
+        &self.tokens[self.current]
+    }
+
     fn advance(&mut self) {
         self.current += 1;
+    }
+
+    fn consume_until(&mut self, token: TokenType) {
+        while self.current < self.size && self.tokens[self.current].token_type != token {
+            self.advance();
+        }
+        if self.current < self.size && self.get_current().token_type == token {
+            self.advance();
+        }
     }
 }
 

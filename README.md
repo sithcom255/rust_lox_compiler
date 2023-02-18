@@ -1,3 +1,3 @@
-### Lox compiler written in Rust
+### Lox interpreter written in Rust
 
-Quite standard implementation of compiler, written with TDD (hopefully).
+Quite standard implementation of interpreter, written with TDD (hopefully).

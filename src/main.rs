@@ -1,19 +1,34 @@
 use crate::expressions::visitor::ExpressionVisitor;
 use crate::parser::Parser;
+use crate::statements::statement::Statement;
+use crate::statements::stmt_visitor::StatementVisitor;
 use crate::token::Scanner;
 
 mod expressions;
 mod log;
 mod parser;
 mod token;
+#[cfg(test)]
 mod token_test;
+mod statements;
 
 fn main() {
-    let mut scanner = Scanner::new();
-    let vec = scanner.tokenize_string(String::from(" \"hello \" + \"world\""));
+    let program = "print \"hello world\" ;\
+     print 1 + 2 ;\
+     print false + false
+     EOF";
+
+    let program = get_program(program);
+
+    for statement in program {
+        statement.accept(Box::new(StatementVisitor::new(ExpressionVisitor {})))
+    }
+}
+
+fn get_program(program: &str) -> Vec<Box<dyn Statement>> {
+    let vec = Scanner::new().tokenize_string(String::from(program));
+
     let mut parser = Parser::new(vec);
-    let option = parser.expression();
-    let x = ExpressionVisitor {};
-    let res = option.unwrap().accept(Box::new(x));
-    println!("{:?}", res)
+    let program = parser.program();
+    program
 }

@@ -1,5 +1,5 @@
-use crate::expressions::expression::{Comparison, ExpressionRes, Equality, Expr, LiteralExpr, GroupingExpr, UnaryExpr, BinaryExpr, ExprResType, Expression};
-use crate::token::{Token, TokenType};
+use crate::expressions::expression::{Comparison, ExpressionRes, Equality, Expr, LiteralExpr, GroupingExpr, UnaryExpr, BinaryExpr, ExprResType};
+use crate::token::{TokenType};
 
 
 pub trait Visitor<T> {
@@ -14,12 +14,6 @@ pub trait Visitor<T> {
 
 #[derive(PartialEq, Copy, Clone)]
 pub struct ExpressionVisitor {}
-
-impl ExpressionVisitor {
-    fn execute_for_equality_(object: &Equality) {
-        println!("Hello-world Equality {:?}", object.value);
-    }
-}
 
 impl Visitor<ExpressionRes> for ExpressionVisitor {
     fn execute_for_expr(&mut self, object: &Expr) -> ExpressionRes {
@@ -49,6 +43,14 @@ impl Visitor<ExpressionRes> for ExpressionVisitor {
 
         if lhs_res.type_ == ExprResType::Number && lhs_res.eq_type(&rhs_res) {
             match object.token.token_type {
+                TokenType::Greater => ExpressionRes::from_bool(
+                    lhs_res.number > rhs_res.number),
+                TokenType::GreaterEqual => ExpressionRes::from_bool(
+                    lhs_res.number >= rhs_res.number),
+                TokenType::Less => ExpressionRes::from_bool(
+                    lhs_res.number < rhs_res.number),
+                TokenType::LessEqual => ExpressionRes::from_bool(
+                    lhs_res.number <= rhs_res.number),
                 TokenType::Minus => ExpressionRes::from_number(
                     lhs_res.number - rhs_res.number),
                 TokenType::Slash => ExpressionRes::from_number(
@@ -66,6 +68,7 @@ impl Visitor<ExpressionRes> for ExpressionVisitor {
                 _ => ExpressionRes::from_none(),
             }
         } else {
+            println!("There has been an error in a binary operation");
             ExpressionRes::from_none()
         }
     }

@@ -1,5 +1,4 @@
-
-
 pub mod expression;
 pub mod visitor;
-mod visitor_test;
+#[cfg(test)]
+pub mod visitor_test;

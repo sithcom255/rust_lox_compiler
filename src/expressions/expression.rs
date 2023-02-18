@@ -1,5 +1,5 @@
 use std::fmt::{Debug, Formatter};
-use crate::expressions::visitor::{ExpressionVisitor, Visitor};
+use crate::expressions::visitor::{Visitor};
 use crate::token::{Token, TokenType};
 
 pub trait Expression<T>: Debug {
@@ -21,8 +21,7 @@ impl Expression<ExpressionRes> for Expr {
 
 impl Debug for Expr {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let string = "Expr";
-        f.debug_struct(string)
+        f.debug_struct("Expr")
             .field("equality", &self.equality).finish()
     }
 }
@@ -184,6 +183,15 @@ impl ExpressionRes {
 
     pub fn eq_type(&self, other: &ExpressionRes) -> bool {
         return self.type_ == other.type_;
+    }
+
+    pub fn print(&self) -> String {
+        match self.type_ {
+            ExprResType::String => self.str.clone(),
+            ExprResType::Number => self.number.to_string(),
+            ExprResType::Boolean => if self.boolean { String::from("true") }else { String::from("false")},
+            ExprResType::Nil => String::from("nil")
+        }
     }
 }
 
