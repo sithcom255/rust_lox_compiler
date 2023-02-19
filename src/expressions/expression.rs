@@ -1,5 +1,5 @@
 use std::fmt::{Debug, Formatter};
-use crate::expressions::visitor::{Visitor};
+use crate::expressions::visitor::{ExpressionInterpreter, Visitor};
 use crate::token::{Token, TokenType};
 
 pub trait Expression<T>: Debug {
@@ -131,6 +131,26 @@ impl Debug for LiteralExpr {
     }
 }
 
+pub struct VariableExpr {
+    pub token_type: TokenType,
+    pub value: String,
+}
+
+impl Expression<ExpressionRes> for VariableExpr {
+    fn accept(&self, visitor: Box<dyn Visitor<ExpressionRes>>) -> ExpressionRes {
+        visitor.execute_for_literal(self)
+    }
+}
+
+impl Debug for VariableExpr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LiteralExpr")
+            .field("token", &self.token_type)
+            .field("value", &self.value)
+            .finish()
+    }
+}
+
 #[derive(Debug)]
 pub struct ExpressionRes {
     pub type_: ExprResType,
@@ -141,7 +161,7 @@ pub struct ExpressionRes {
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum ExprResType {
-    String, Number, Boolean, Nil
+    String, Number, Boolean, Variable, Nil
 }
 
 impl ExpressionRes {
@@ -169,6 +189,15 @@ impl ExpressionRes {
             str: String::new(),
             number: 0,
             boolean,
+        }
+    }
+
+    pub fn from_variable(str: String) -> ExpressionRes {
+        ExpressionRes {
+            type_ : ExprResType::Variable,
+            str,
+            number: 0,
+            boolean: false,
         }
     }
 
@@ -217,7 +246,7 @@ fn visitor_test() {
         value: String::from("here"),
         equality: Some(Box::new(equality)),
     };
-    let visitor = ExpressionVisitor {};
+    let visitor = ExpressionInterpreter {};
     let res = expr.accept(Box::new(visitor));
     println!("{:?}", res)
 }

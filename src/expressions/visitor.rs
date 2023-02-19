@@ -1,4 +1,4 @@
-use crate::expressions::expression::{Comparison, ExpressionRes, Equality, Expr, LiteralExpr, GroupingExpr, UnaryExpr, BinaryExpr, ExprResType};
+use crate::expressions::expression::{Comparison, ExpressionRes, Equality, Expr, LiteralExpr, GroupingExpr, UnaryExpr, BinaryExpr, ExprResType, VariableExpr};
 use crate::token::{TokenType};
 
 
@@ -10,12 +10,13 @@ pub trait Visitor<T> {
     fn execute_for_binary(&self, object: &BinaryExpr) -> T;
     fn execute_for_unary(&self, object: &UnaryExpr) -> T;
     fn execute_for_literal(&self, object: &LiteralExpr) -> T;
+    fn execute_for_variable(&self, object: &VariableExpr) -> T;
 }
 
 #[derive(PartialEq, Copy, Clone)]
-pub struct ExpressionVisitor {}
+pub struct ExpressionInterpreter {}
 
-impl Visitor<ExpressionRes> for ExpressionVisitor {
+impl Visitor<ExpressionRes> for ExpressionInterpreter {
     fn execute_for_expr(&mut self, object: &Expr) -> ExpressionRes {
         let expression = object.equality.as_ref().unwrap();
         expression.accept(Box::new(*self))
@@ -94,5 +95,9 @@ impl Visitor<ExpressionRes> for ExpressionVisitor {
             TokenType::True => ExpressionRes::from_bool(true),
             _ => ExpressionRes::from_none()
         }
+    }
+
+    fn execute_for_variable(&self, object: &VariableExpr) -> ExpressionRes {
+        return ExpressionRes::from_variable(object.value.clone());
     }
 }

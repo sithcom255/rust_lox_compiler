@@ -27,7 +27,7 @@ impl Debug for Stmt {
 
 impl Statement for Stmt {
     fn accept(&self, visitor: Box<dyn StmtVisitor>) {
-        visitor.execute_for_statement(self)
+        visitor.execute_statement(self)
     }
 }
 
@@ -51,5 +51,24 @@ impl Debug for PrintStatement {
 impl Statement for PrintStatement {
     fn accept(&self, visitor: Box<dyn StmtVisitor>) {
         visitor.execute_print_statement(self)
+    }
+}
+
+pub struct VarDeclaration {
+    pub expr: Box<dyn Expression<ExpressionRes>>,
+    pub identifier: String,
+}
+
+impl Debug for VarDeclaration {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("VarStatement")
+            .field("identifier", &self.identifier)
+            .field("expression",&self.expr ).finish()
+    }
+}
+
+impl Statement for VarDeclaration {
+    fn accept(&self, visitor: Box<dyn StmtVisitor>) {
+        visitor.execute_var_statement(self)
     }
 }

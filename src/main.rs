@@ -1,7 +1,7 @@
-use crate::expressions::visitor::ExpressionVisitor;
+use crate::expressions::visitor::ExpressionInterpreter;
 use crate::parser::Parser;
 use crate::statements::statement::Statement;
-use crate::statements::stmt_visitor::StatementVisitor;
+use crate::statements::stmt_visitor::StatementInterpreter;
 use crate::token::Scanner;
 
 mod expressions;
@@ -21,7 +21,7 @@ fn main() {
     let program = get_program(program);
 
     for statement in program {
-        statement.accept(Box::new(StatementVisitor::new(ExpressionVisitor {})))
+        statement.accept(Box::new(StatementInterpreter::new(ExpressionInterpreter {})))
     }
 }
 

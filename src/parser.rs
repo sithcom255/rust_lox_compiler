@@ -1,6 +1,7 @@
+use std::thread::current;
 use crate::token::{Token, TokenType};
-use crate::expressions::expression::{BinaryExpr, Expr, Expression, ExpressionRes, GroupingExpr, LiteralExpr, UnaryExpr};
-use crate::statements::statement::{PrintStatement, Statement};
+use crate::expressions::expression::{BinaryExpr, Expr, Expression, ExpressionRes, GroupingExpr, LiteralExpr, UnaryExpr, VariableExpr};
+use crate::statements::statement::{PrintStatement, Statement, VarDeclaration};
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -20,14 +21,25 @@ impl Parser {
     }
 
     pub fn program(&mut self) -> Vec<Box<dyn Statement>> {
-        let mut statements = Vec::new();
+        let mut declarations = Vec::new();
         while  self.current < self.size && self.get_current().token_type != TokenType::EOF  {
-            match self.statement_get() {
-                Some(value) => statements.push(value),
+            match self.declaration() {
+                Some(value) => declarations.push(value),
                 None => continue,
             };
         };
-        statements
+        declarations
+    }
+
+    pub fn declaration(&mut self) -> Option<Box<dyn Statement>> {
+        if self.get_current().token_type == TokenType::Var {
+            self.advance();
+            let option = self.primary();
+
+            VarDeclaration { expr: Box::new(()), identifier: "".to_string() }
+        }
+        self.statement_get()
+
     }
 
     pub fn statement_get(&mut self) -> Option<Box<dyn Statement>> {
@@ -164,10 +176,10 @@ impl Parser {
                 Box::new(GroupingExpr { value: expression })
             }
             _ => {
-                let token_type = self.get_current().clone().token_type;
+                let token = self.get_current().clone();
 
                 self.advance();
-                Box::new(LiteralExpr { token_type, value: "trouble here".to_string() })
+                Box::new(VariableExpr { token_type : token.token_type, value: token.value})
             }
         };
         Some(primary)

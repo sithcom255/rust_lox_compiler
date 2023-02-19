@@ -1,5 +1,5 @@
 use crate::expressions::expression::{BinaryExpr, Expression, LiteralExpr, UnaryExpr};
-use crate::expressions::visitor::ExpressionVisitor;
+use crate::expressions::visitor::ExpressionInterpreter;
 use crate::token::{Token, TokenType};
 
 #[test]
@@ -12,7 +12,7 @@ fn unary_bang() {
         },
         rhs: Box::new(LiteralExpr { token_type: TokenType::False, value: "".to_string() }),
     };
-    let visitor = ExpressionVisitor {};
+    let visitor = ExpressionInterpreter {};
     assert!(expr.accept(Box::new(visitor)).boolean);
 }
 
@@ -27,6 +27,6 @@ fn string_binary_plus() {
         lhs: Box::new(LiteralExpr { token_type: TokenType::String, value: "hello ".to_string() }),
         rhs: Box::new(LiteralExpr { token_type: TokenType::String, value: "world".to_string() }),
     };
-    let visitor = ExpressionVisitor {};
+    let visitor = ExpressionInterpreter {};
     assert_eq!(expr.accept(Box::new(visitor)).str, "hello world");
 }
