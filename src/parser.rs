@@ -36,10 +36,10 @@ impl Parser {
             self.advance();
             let option = self.primary();
 
-            VarDeclaration { expr: Box::new(()), identifier: "".to_string() }
+            Some(Box::new(VarDeclaration { expr: option.unwrap(), identifier: "".to_string() }))
+        } else {
+            self.statement_get()
         }
-        self.statement_get()
-
     }
 
     pub fn statement_get(&mut self) -> Option<Box<dyn Statement>> {

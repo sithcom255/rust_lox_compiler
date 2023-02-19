@@ -138,7 +138,7 @@ pub struct VariableExpr {
 
 impl Expression<ExpressionRes> for VariableExpr {
     fn accept(&self, visitor: Box<dyn Visitor<ExpressionRes>>) -> ExpressionRes {
-        visitor.execute_for_literal(self)
+        visitor.execute_for_variable(self)
     }
 }
 
@@ -219,7 +219,8 @@ impl ExpressionRes {
             ExprResType::String => self.str.clone(),
             ExprResType::Number => self.number.to_string(),
             ExprResType::Boolean => if self.boolean { String::from("true") }else { String::from("false")},
-            ExprResType::Nil => String::from("nil")
+            ExprResType::Nil => String::from("nil"),
+            ExprResType::Variable => self.str.clone(),
         }
     }
 }
