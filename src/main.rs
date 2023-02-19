@@ -20,9 +20,8 @@ fn main() {
 
     let program = get_program(program);
 
-    for statement in program {
-        statement.accept(Box::new(StatementInterpreter::new(ExpressionInterpreter {})))
-    }
+    let interpreter = StatementInterpreter::new(ExpressionInterpreter {});
+    interpreter.interpret(program);
 }
 
 fn get_program(program: &str) -> Vec<Box<dyn Statement>> {
