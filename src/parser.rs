@@ -22,7 +22,7 @@ impl Parser {
 
     pub fn program(&mut self) -> Vec<Box<dyn Statement>> {
         let mut declarations = Vec::new();
-        while  self.current < self.size && self.get_current().token_type != TokenType::EOF  {
+        while self.current < self.size && self.get_current().token_type != TokenType::EOF {
             match self.declaration() {
                 Some(value) => declarations.push(value),
                 None => continue,
@@ -35,8 +35,13 @@ impl Parser {
         if self.get_current().token_type == TokenType::Var {
             self.advance();
             let option = self.primary();
-
-            Some(Box::new(VarDeclaration { expr: option.unwrap(), identifier: "".to_string() }))
+            if self.get_current().token_type == TokenType::Equal {
+                self.advance();
+                let expression = self.expression();
+                Some(Box::new(VarDeclaration { expr: expression, identifier: option.unwrap() }))
+            } else {
+                Some(Box::new(VarDeclaration::from_identifier(option.unwrap())))
+            }
         } else {
             self.statement_get()
         }
@@ -58,6 +63,7 @@ impl Parser {
 
         Some(Box::new(PrintStatement { expr: expression.unwrap() }))
     }
+
     pub fn expression_statement(&mut self) -> Option<Box<dyn Statement>> {
         self.consume_until(TokenType::Semicolon);
         None
@@ -179,7 +185,7 @@ impl Parser {
                 let token = self.get_current().clone();
 
                 self.advance();
-                Box::new(VariableExpr { token_type : token.token_type, value: token.value})
+                Box::new(VariableExpr { token_type: token.token_type, value: token.value })
             }
         };
         Some(primary)

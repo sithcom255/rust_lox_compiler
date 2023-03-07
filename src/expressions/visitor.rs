@@ -3,8 +3,8 @@ use crate::token::{TokenType};
 
 
 pub trait Visitor<T> {
-    fn execute_for_expr(&mut self, object: &Expr) -> T;
-    fn execute_for_equality(&mut self, object: &Equality) -> T;
+    fn execute_for_expr(&self, object: &Expr) -> T;
+    fn execute_for_equality(&self, object: &Equality) -> T;
     fn execute_for_comparison(&self, object: &Comparison) -> T;
     fn execute_for_grouping(&self, object: &GroupingExpr) -> T;
     fn execute_for_binary(&self, object: &BinaryExpr) -> T;
@@ -17,13 +17,13 @@ pub trait Visitor<T> {
 pub struct ExpressionInterpreter {}
 
 impl Visitor<ExpressionRes> for ExpressionInterpreter {
-    fn execute_for_expr(&mut self, object: &Expr) -> ExpressionRes {
+    fn execute_for_expr(& self, object: &Expr) -> ExpressionRes {
         let expression = object.equality.as_ref().unwrap();
-        expression.accept(Box::new(*self))
+        expression.accept(Box::new(self))
     }
 
 
-    fn execute_for_equality(&mut self, object: &Equality) -> ExpressionRes {
+    fn execute_for_equality(&self, object: &Equality) -> ExpressionRes {
         println!("Hello-world Equality {:?}", object.value);
         ExpressionRes::from_str(String::from(""))
     }
@@ -35,12 +35,12 @@ impl Visitor<ExpressionRes> for ExpressionInterpreter {
 
     fn execute_for_grouping(&self, object: &GroupingExpr) -> ExpressionRes {
         let expression = object.value.as_ref();
-        expression.accept(Box::new(*self))
+        expression.accept(Box::new(self))
     }
 
     fn execute_for_binary(&self, object: &BinaryExpr) -> ExpressionRes {
-        let rhs_res = object.rhs.as_ref().accept(Box::new(*self));
-        let lhs_res = object.lhs.as_ref().accept(Box::new(*self));
+        let rhs_res = object.rhs.as_ref().accept(Box::new(self));
+        let lhs_res = object.lhs.as_ref().accept(Box::new(self));
 
         if lhs_res.type_ == ExprResType::Number && lhs_res.eq_type(&rhs_res) {
             match object.token.token_type {
@@ -76,7 +76,7 @@ impl Visitor<ExpressionRes> for ExpressionInterpreter {
 
     fn execute_for_unary(&self, object: &UnaryExpr) -> ExpressionRes {
         let rhs = object.rhs.as_ref();
-        let rhs_res = rhs.accept(Box::new(*self));
+        let rhs_res = rhs.accept(Box::new(self));
 
         match (rhs_res.type_, object.token.token_type) {
             (ExprResType::Number, TokenType::Minus) => ExpressionRes::from_number(-(rhs_res.number)),

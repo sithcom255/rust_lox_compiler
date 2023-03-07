@@ -26,7 +26,7 @@ impl Debug for Stmt {
 }
 
 impl Statement for Stmt {
-    fn accept(&self, visitor: Box<dyn StmtVisitor>) {
+    fn accept(&self, visitor: Box<&mut dyn StmtVisitor>) {
         visitor.execute_statement(self)
     }
 }
@@ -55,8 +55,14 @@ impl Statement for PrintStatement {
 }
 
 pub struct VarDeclaration {
-    pub expr: Box<dyn Expression<ExpressionRes>>,
-    pub identifier: String,
+    pub identifier: Box<dyn Expression<ExpressionRes>>,
+    pub expr: Option<Box<dyn Expression<ExpressionRes>>>,
+}
+
+impl VarDeclaration {
+    pub fn from_identifier(identifier: Box<dyn Expression<ExpressionRes>>) -> VarDeclaration {
+        VarDeclaration {identifier, expr: None }
+    }
 }
 
 impl Debug for VarDeclaration {
@@ -68,7 +74,7 @@ impl Debug for VarDeclaration {
 }
 
 impl Statement for VarDeclaration {
-    fn accept(&self, visitor: Box<dyn StmtVisitor>) {
+    fn accept(&self, mut visitor: Box<dyn StmtVisitor>) {
         visitor.execute_var_statement(self)
     }
 }

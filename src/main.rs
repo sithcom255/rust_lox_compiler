@@ -1,3 +1,5 @@
+extern crate core;
+
 use crate::expressions::visitor::ExpressionInterpreter;
 use crate::parser::Parser;
 use crate::statements::statement::Statement;
@@ -11,6 +13,8 @@ mod token;
 #[cfg(test)]
 mod token_test;
 mod statements;
+mod env;
+mod program;
 
 fn main() {
     let program = "print \"hello world\" ;\

@@ -1,9 +1,10 @@
 use std::fmt::{Debug, Formatter};
+use std::rc::Rc;
 use crate::expressions::visitor::{ExpressionInterpreter, Visitor};
 use crate::token::{Token, TokenType};
 
 pub trait Expression<T>: Debug {
-    fn accept(&self, visitor: Box<dyn Visitor<T>>) -> T;
+    fn accept(&self, visitor: Rc<&dyn Visitor<T>>) -> T;
 }
 
 
@@ -14,7 +15,7 @@ pub struct Expr {
 
 
 impl Expression<ExpressionRes> for Expr {
-    fn accept(&self, mut visitor: Box<dyn Visitor<ExpressionRes>>) -> ExpressionRes {
+    fn accept(&self, visitor: Box<&dyn Visitor<ExpressionRes>>) -> ExpressionRes {
         visitor.execute_for_expr(self)
     }
 }
@@ -33,7 +34,7 @@ pub struct Equality {
 }
 
 impl Expression<ExpressionRes> for Equality {
-    fn accept(&self, mut visitor: Box<dyn Visitor<ExpressionRes>>) -> ExpressionRes {
+    fn accept(&self, visitor: Box<&dyn Visitor<ExpressionRes>>) -> ExpressionRes {
         visitor.execute_for_equality(self)
     }
 }
@@ -64,7 +65,7 @@ impl Debug for GroupingExpr {
 }
 
 impl Expression<ExpressionRes> for GroupingExpr {
-    fn accept(&self, visitor: Box<dyn Visitor<ExpressionRes>>) -> ExpressionRes {
+    fn accept(&self, visitor: Box<&dyn Visitor<ExpressionRes>>) -> ExpressionRes {
         visitor.execute_for_grouping(self)
     }
 }
@@ -86,7 +87,7 @@ impl Debug for BinaryExpr {
 }
 
 impl Expression<ExpressionRes> for BinaryExpr {
-    fn accept(&self, visitor: Box<dyn Visitor<ExpressionRes>>) -> ExpressionRes {
+    fn accept(&self, visitor: Box<&dyn Visitor<ExpressionRes>>) -> ExpressionRes {
         visitor.execute_for_binary(self)
     }
 }
@@ -106,7 +107,7 @@ impl Debug for UnaryExpr {
 }
 
 impl Expression<ExpressionRes> for UnaryExpr {
-    fn accept(&self, visitor: Box<dyn Visitor<ExpressionRes>>) -> ExpressionRes {
+    fn accept(&self, visitor: Box<&dyn Visitor<ExpressionRes>>) -> ExpressionRes {
         visitor.execute_for_unary(self)
     }
 }
@@ -117,7 +118,7 @@ pub struct LiteralExpr {
 }
 
 impl Expression<ExpressionRes> for LiteralExpr {
-    fn accept(&self, visitor: Box<dyn Visitor<ExpressionRes>>) -> ExpressionRes {
+    fn accept(&self, visitor: Box<&dyn Visitor<ExpressionRes>>) -> ExpressionRes {
         visitor.execute_for_literal(self)
     }
 }
@@ -137,7 +138,7 @@ pub struct VariableExpr {
 }
 
 impl Expression<ExpressionRes> for VariableExpr {
-    fn accept(&self, visitor: Box<dyn Visitor<ExpressionRes>>) -> ExpressionRes {
+    fn accept(&self, visitor: Box<&dyn Visitor<ExpressionRes>>) -> ExpressionRes {
         visitor.execute_for_variable(self)
     }
 }
