@@ -6,6 +6,6 @@ impl Log {
     }
 
     fn report(importance: &str, line: usize, message: &str) {
-        println!("[ Line {} ] {} : {}", line, importance, message);
+        println!("[ Line {line} ] {importance} : {message}");
     }
 }

@@ -1,49 +1,59 @@
-use crate::env::environment::Environment;
+use std::cell::RefCell;
+use std::ops::{Deref, DerefMut};
+use std::rc::Rc;
+
+
 use crate::expressions::expression::ExprResType::Variable;
-use crate::expressions::visitor::{ExpressionInterpreter};
-use crate::statements::statement::{PrintStatement, Statement, Stmt, VarDeclaration};
-use crate::token::TokenType;
+use crate::expressions::visitor::ExpressionInterpreter;
+use crate::statements::statement::Statement;
+use crate::program::program::ProgramEnvs;
 
 
 pub trait StmtVisitor {
-    fn execute_statement(&self, object: &Stmt);
-    fn execute_print_statement(&self, object: &PrintStatement);
-    fn execute_var_statement(&mut self, object: &VarDeclaration);
+    fn eval(&mut self, object: &Statement);
 }
 
 pub struct StatementInterpreter {
     pub expression_visitor: ExpressionInterpreter,
-    pub environment: Environment,
+    pub program: Rc<RefCell<ProgramEnvs>>,
 }
 
 impl StmtVisitor for StatementInterpreter {
-    fn execute_statement(&self, object: &Stmt) {
-        object.expr.accept(Box::new(&self.expression_visitor));
-    }
 
-    fn execute_print_statement(&self, object: &PrintStatement) {
-        let res = object.expr.accept(Box::new(&self.expression_visitor));
-        println!("{}", res.print())
-    }
+    fn eval(&mut self, object: &Statement) {
+        match object {
+            Statement::Stmt { expr } => {
+                expr.accept(Rc::new(&self.expression_visitor));
+            }
+            Statement::PrintStatement { expr } => {
+                let res = expr.accept(Rc::new(&self.expression_visitor));
+                println!("{}", res.print())
+            }
+            Statement::VarDeclaration { identifier, expr } => {
+                let identifier_res = identifier.as_ref().accept(Rc::new(&self.expression_visitor));
+                let content = expr.as_ref().unwrap().accept(Rc::new(&self.expression_visitor));
+                println!("{identifier_res:?}  {content:?}");
+                if identifier_res.type_ == Variable {
+                    let rc = self.program.clone();
+                    let mut ref_mut = rc.try_borrow_mut().unwrap();
+                    let envs = ref_mut.deref_mut();
+                    envs.assign_value_to_var(0, identifier_res.str, content);
+                };
+            }
+        }
 
-    fn execute_var_statement(&mut self, object: &VarDeclaration) {
-        let identifier_res = object.identifier.as_ref().accept(Box::new(&self.expression_visitor));
-        if identifier_res.type_ == Variable {
-            let res = object.expr.as_ref().unwrap().accept(Box::new(&self.expression_visitor));
-            self.environment.define_variable(identifier_res.str, res);
-        };
-        println!("{:?}", self.environment.get_variable("hello"))
     }
 }
 
 impl StatementInterpreter {
+
     pub fn new(expression_visitor: ExpressionInterpreter) -> StatementInterpreter {
-        StatementInterpreter { expression_visitor, environment : Environment::new() }
+        StatementInterpreter { expression_visitor, program: Rc::new(RefCell::new(ProgramEnvs::new())) }
     }
 
-    pub fn interpret(&self, program: Vec<Box<dyn Statement>>) {
+    pub fn interpret(&mut self, program: Vec<Box<Statement>>) {
         for statement in program {
-            statement.accept(Box::new(self))
+            self.eval(&*statement)
         }
     }
 }

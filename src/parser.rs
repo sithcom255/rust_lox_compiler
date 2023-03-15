@@ -1,7 +1,6 @@
-use std::thread::current;
-use crate::token::{Token, TokenType};
 use crate::expressions::expression::{BinaryExpr, Expr, Expression, ExpressionRes, GroupingExpr, LiteralExpr, UnaryExpr, VariableExpr};
-use crate::statements::statement::{PrintStatement, Statement, VarDeclaration};
+use crate::statements::statement::{Statement};
+use crate::token::{Token, TokenType};
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -20,7 +19,7 @@ impl Parser {
         }
     }
 
-    pub fn program(&mut self) -> Vec<Box<dyn Statement>> {
+    pub fn program(&mut self) -> Vec<Box<Statement>> {
         let mut declarations = Vec::new();
         while self.current < self.size && self.get_current().token_type != TokenType::EOF {
             match self.declaration() {
@@ -31,40 +30,38 @@ impl Parser {
         declarations
     }
 
-    pub fn declaration(&mut self) -> Option<Box<dyn Statement>> {
+    pub fn declaration(&mut self) -> Option<Box<Statement>> {
         if self.get_current().token_type == TokenType::Var {
             self.advance();
             let option = self.primary();
             if self.get_current().token_type == TokenType::Equal {
                 self.advance();
                 let expression = self.expression();
-                Some(Box::new(VarDeclaration { expr: expression, identifier: option.unwrap() }))
+                Some(Box::new(Statement::VarDeclaration { expr: expression, identifier: option.unwrap() }))
             } else {
-                Some(Box::new(VarDeclaration::from_identifier(option.unwrap())))
+                Some(Box::new(Statement::VarDeclaration { expr: None, identifier: option.unwrap() }))
             }
         } else {
             self.statement_get()
         }
     }
 
-    pub fn statement_get(&mut self) -> Option<Box<dyn Statement>> {
-        let statement;
+    pub fn statement_get(&mut self) -> Option<Box<Statement>> {
         match self.get_current().token_type {
-            TokenType::Print => statement = self.print_statement(),
-            _ => statement = self.expression_statement(),
+            TokenType::Print => self.print_statement(),
+            _ => self.expression_statement(),
         }
-        statement
     }
 
-    pub fn print_statement(&mut self) -> Option<Box<dyn Statement>> {
+    pub fn print_statement(&mut self) -> Option<Box<Statement>> {
         self.advance();
         let expression = self.expression();
         self.consume_until(TokenType::Semicolon);
 
-        Some(Box::new(PrintStatement { expr: expression.unwrap() }))
+        Some(Box::new(Statement::PrintStatement { expr: expression.unwrap() }))
     }
 
-    pub fn expression_statement(&mut self) -> Option<Box<dyn Statement>> {
+    pub fn expression_statement(&mut self) -> Option<Box<Statement>> {
         self.consume_until(TokenType::Semicolon);
         None
     }
@@ -183,7 +180,6 @@ impl Parser {
             }
             _ => {
                 let token = self.get_current().clone();
-
                 self.advance();
                 Box::new(VariableExpr { token_type: token.token_type, value: token.value })
             }

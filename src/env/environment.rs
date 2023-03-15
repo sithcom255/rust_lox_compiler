@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+
 use crate::expressions::expression::ExpressionRes;
 
 pub struct Environment {
@@ -17,7 +18,7 @@ impl Environment {
     }
 
     pub fn define_variable(&mut self, name: String, expr : ExpressionRes) {
-        self.variables[&name] = expr;
+        self.variables.insert(name,expr);
     }
 
     pub fn get_variable(&mut self, name: &str) -> Option<&ExpressionRes> {

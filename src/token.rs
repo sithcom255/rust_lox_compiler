@@ -1,5 +1,6 @@
-use crate::log::Log;
 use std::fs;
+
+use crate::log::Log;
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum TokenType {

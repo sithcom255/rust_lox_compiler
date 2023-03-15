@@ -1,5 +1,6 @@
 extern crate core;
 
+use std::borrow::Borrow;
 use crate::expressions::visitor::ExpressionInterpreter;
 use crate::parser::Parser;
 use crate::statements::statement::Statement;
@@ -19,16 +20,19 @@ mod program;
 fn main() {
     let program = "print \"hello world\" ;\
      print 1 + 2 ;\
-     print false + false
+     print false + false;
+     var x=1;
      EOF";
 
     let program = get_program(program);
-
-    let interpreter = StatementInterpreter::new(ExpressionInterpreter {});
+    for statements in &program {
+        println!("{:?}",statements)
+    }
+    let mut interpreter = StatementInterpreter::new(ExpressionInterpreter {});
     interpreter.interpret(program);
 }
 
-fn get_program(program: &str) -> Vec<Box<dyn Statement>> {
+fn get_program(program: &str) -> Vec<Box<Statement>> {
     let vec = Scanner::new().tokenize_string(String::from(program));
 
     let mut parser = Parser::new(vec);
