@@ -1,11 +1,13 @@
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use crate::expressions::expression::ExpressionRes;
 
+#[derive(Debug)]
 pub struct Environment {
-    variables : HashMap<String, ExpressionRes>,
-    functions : HashMap<String, Function>,
-    classes: HashMap<String, Class>,
+    variables : HashMap<String, Rc<ExpressionRes>>,
+    functions : HashMap<String, Rc<Function>>,
+    classes: HashMap<String, Rc<Class>>,
 }
 
 impl Environment {
@@ -18,20 +20,28 @@ impl Environment {
     }
 
     pub fn define_variable(&mut self, name: String, expr : ExpressionRes) {
-        self.variables.insert(name,expr);
+        self.variables.insert(name,Rc::new(expr));
     }
 
-    pub fn get_variable(&mut self, name: &str) -> Option<&ExpressionRes> {
-        self.variables.get(name)
+    pub fn get_variable(&mut self, name: String) -> Option<Rc<ExpressionRes>> {
+        let option = self.variables.get(&name);
+        match option {
+            None => { None}
+            Some(value) => {
+                let rc = value.clone();
+                Some(rc)
+            }
+        }
+
     }
 }
 
-
+#[derive(Debug)]
 struct Class {
     attributes : HashMap<String, ExpressionRes>,
     functions : HashMap<String, Function>,
 }
-
+#[derive(Debug)]
 struct Function {
 
 }

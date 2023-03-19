@@ -1,4 +1,6 @@
+
 use crate::token::{Scanner, Token, TokenType};
+use crate::token::TokenType::{Else, Equal, Identifier, If, LeftBrace, LeftParen, Number, RightBrace, RightParen, Semicolon, Var};
 
 #[test]
 fn test_tokenizing_one_token() {
@@ -214,4 +216,65 @@ fn tokenize_string_throws_unterminated_string() {
     let mut tokenizer = Scanner::new();
     let variable = tokenizer.tokenize_string(" \"".to_string());
     assert_eq!(Vec::<Token>::new(), variable)
+}
+
+#[test]
+fn tokenize_var_declaration() {
+    let mut tokenizer = Scanner::new();
+    let variable = tokenizer.tokenize_string("var x = 1".to_string());
+    let var = Token::new(Var, String::from("var"), 0);
+    let x = Token::new(Identifier, String::from("x"), 0);
+    let equals = Token::new(Equal, String::from("="), 0);
+    let one = Token::new(Number, String::from("1"), 0);
+    assert_eq!(vec![var, x, equals, one], variable)
+}
+
+#[test]
+fn tokenize_scope_declaration() {
+    let mut tokenizer = Scanner::new();
+    let variable = tokenizer.tokenize_string("var x;\
+     { x = 1; }\
+     ".to_string());
+    let var = Token::new(Var, String::from("var"), 0);
+    let x = Token::new(Identifier, String::from("x"), 0);
+    let semi = Token::new(Semicolon, String::from(";"), 0);
+    let semi2 = Token::new(Semicolon, String::from(";"), 0);
+    let brace = Token::new(LeftBrace, String::from("{"), 0);
+    let x_assign = Token::new(Identifier, String::from("x"), 0);
+    let equals = Token::new(Equal, String::from("="), 0);
+    let one = Token::new(Number, String::from("1"), 0);
+    let brace2 = Token::new(RightBrace, String::from("}"), 0);
+    assert_eq!(vec![var, x, semi, brace, x_assign, equals, one, semi2, brace2], variable)
+}
+
+#[test]
+fn tokenize_if() {
+    let x1 =
+        "if (true) {
+        var x;
+        } else {
+        var y;
+        }    ";
+    let variable = Scanner::new().tokenize_string(x1.to_string());
+
+
+    let if_tok = Token::new(If, String::from("if"), 0);
+    let l = Token::new(LeftParen, String::from("("), 0);
+    let boo = Token::new(TokenType::True, String::from("true"), 0);
+    let r = Token::new(RightParen, String::from(")"), 0);
+    let bracel = Token::new(LeftBrace, String::from("{"), 0);
+    let var = Token::new(Var, String::from("var"), 1);
+    let x = Token::new(Identifier, String::from("x"), 1);
+    let semi = Token::new(Semicolon, String::from(";"), 1);
+    let bracer = Token::new(RightBrace, String::from("}"), 2);
+    let else_tok = Token::new(Else, String::from("else"), 2);
+
+    let bracel2 = Token::new(LeftBrace, String::from("{"), 2);
+    let vary = Token::new(Var, String::from("var"), 3);
+    let y = Token::new(Identifier, String::from("y"), 3);
+    let sem2 = Token::new(Semicolon, String::from(";"), 3);
+    let bracer2 = Token::new(RightBrace, String::from("}"), 4);
+
+    assert_eq!(vec![if_tok, l, boo, r, bracel, var, x, semi, bracer, else_tok, bracel2, vary,
+                    y, sem2, bracer2], variable)
 }

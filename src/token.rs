@@ -14,6 +14,7 @@ pub enum TokenType {
     Minus,
     Plus,
     Semicolon,
+    Percent,
     Slash,
     Star,
 
@@ -59,6 +60,24 @@ pub struct Token {
     pub token_type: TokenType,
     pub value: String,
     pub line: usize,
+}
+
+impl Token {
+    pub fn new(token_type: TokenType, value: String, line: usize) -> Token {
+        Token {
+            token_type,
+            value,
+            line,
+        }
+    }
+
+    pub fn new_simple(token_type: TokenType, value: String) -> Token {
+        Token {
+            token_type,
+            value,
+            line: 0,
+        }
+    }
 }
 
 pub struct Scanner {
@@ -185,6 +204,7 @@ impl Scanner {
             '+' => Some(TokenType::Plus),
             ';' => Some(TokenType::Semicolon),
             '*' => Some(TokenType::Star),
+            '%' => Some(TokenType::Percent),
             ' ' => Some(TokenType::Space),
             '\t' => Some(TokenType::Space),
             '\n' => {
@@ -202,28 +222,28 @@ impl Scanner {
                     Some(TokenType::BangEqual)
                 } else {
                     Some(TokenType::Bang)
-                }
+                };
             }
             '=' => {
                 return if self.peek_advance(value + 1, &'=') {
                     Some(TokenType::EqualEqual)
                 } else {
                     Some(TokenType::Equal)
-                }
+                };
             }
             '<' => {
                 return if self.peek_advance(value + 1, &'=') {
                     Some(TokenType::LessEqual)
                 } else {
                     Some(TokenType::Less)
-                }
+                };
             }
             '>' => {
                 return if self.peek_advance(value + 1, &'=') {
                     Some(TokenType::GreaterEqual)
                 } else {
                     Some(TokenType::Greater)
-                }
+                };
             }
             _ => None,
         }

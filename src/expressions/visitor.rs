@@ -1,6 +1,10 @@
+use std::cell::RefCell;
+use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 
-use crate::expressions::expression::{BinaryExpr, Comparison, Equality, Expr, ExpressionRes, ExprResType, GroupingExpr, LiteralExpr, UnaryExpr, VariableExpr};
+use crate::expressions::expression::{Assignment, BinaryExpr, Comparison, Equality, Expr, ExpressionRes, ExprResType, GroupingExpr, LiteralExpr, Logical, UnaryExpr, VariableExpr};
+use crate::expressions::expression::ExprResType::Variable;
+use crate::program::program::ProgramEnvs;
 use crate::token::TokenType;
 
 pub trait Visitor<T> {
@@ -12,11 +16,33 @@ pub trait Visitor<T> {
     fn execute_for_unary(&self, object: &UnaryExpr) -> T;
     fn execute_for_literal(&self, object: &LiteralExpr) -> T;
     fn execute_for_variable(&self, object: &VariableExpr) -> T;
+    fn execute_for_assignment(&self, object: &Assignment) -> T;
+    fn execute_for_logical(&self, object: &Logical) -> T;
 }
 
-#[derive(PartialEq, Debug, Copy, Clone)]
+#[derive(Clone)]
 pub struct ExpressionInterpreter {
+    pub envs: Rc<RefCell<ProgramEnvs>>,
+}
 
+impl Debug for ExpressionInterpreter {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ExpressionInterpreter debug")
+            .finish()
+    }
+}
+
+impl ExpressionInterpreter {
+    pub fn new() -> ExpressionInterpreter {
+        ExpressionInterpreter {
+            envs: Rc::new(RefCell::new(ProgramEnvs::new()))
+        }
+    }
+    pub fn new_with_envs(envs: Rc<RefCell<ProgramEnvs>>) -> ExpressionInterpreter {
+        ExpressionInterpreter {
+            envs
+        }
+    }
 }
 
 impl Visitor<ExpressionRes> for ExpressionInterpreter {
@@ -42,8 +68,17 @@ impl Visitor<ExpressionRes> for ExpressionInterpreter {
     }
 
     fn execute_for_binary(&self, object: &BinaryExpr) -> ExpressionRes {
-        let rhs_res = object.rhs.as_ref().accept(Rc::new(self));
-        let lhs_res = object.lhs.as_ref().accept(Rc::new(self));
+        let mut rhs_res = Rc::new(object.rhs.as_ref().accept(Rc::new(self)));
+        let mut lhs_res = Rc::new(object.lhs.as_ref().accept(Rc::new(self)));
+
+        if rhs_res.type_ == Variable {
+            rhs_res = self.envs.borrow().lookup_var(rhs_res.str.to_string());
+        }
+
+        if lhs_res.type_ == Variable {
+            lhs_res = self.envs.borrow().lookup_var(lhs_res.str.to_string());
+        }
+
 
         if lhs_res.type_ == ExprResType::Number && lhs_res.eq_type(&rhs_res) {
             match object.token.token_type {
@@ -55,6 +90,8 @@ impl Visitor<ExpressionRes> for ExpressionInterpreter {
                     lhs_res.number < rhs_res.number),
                 TokenType::LessEqual => ExpressionRes::from_bool(
                     lhs_res.number <= rhs_res.number),
+                TokenType::EqualEqual => ExpressionRes::from_bool(
+                    lhs_res.number == rhs_res.number),
                 TokenType::Minus => ExpressionRes::from_number(
                     lhs_res.number - rhs_res.number),
                 TokenType::Slash => ExpressionRes::from_number(
@@ -63,12 +100,15 @@ impl Visitor<ExpressionRes> for ExpressionInterpreter {
                     lhs_res.number * rhs_res.number),
                 TokenType::Plus => ExpressionRes::from_number(
                     lhs_res.number + rhs_res.number),
+                TokenType::Percent => ExpressionRes::from_number(
+                    (lhs_res.number).rem_euclid(rhs_res.number)
+                ),
                 _ => ExpressionRes::from_none()
             }
         } else if lhs_res.type_ == ExprResType::String && lhs_res.eq_type(&rhs_res) {
             match object.token.token_type {
                 TokenType::Plus => ExpressionRes::from_str(
-                    lhs_res.str + &*rhs_res.str),
+                    lhs_res.str.to_string() + &*rhs_res.str),
                 _ => ExpressionRes::from_none(),
             }
         } else {
@@ -101,6 +141,42 @@ impl Visitor<ExpressionRes> for ExpressionInterpreter {
     }
 
     fn execute_for_variable(&self, object: &VariableExpr) -> ExpressionRes {
-        ExpressionRes::from_variable(object.value.clone())
+        match object.token_type {
+            TokenType::Nil => ExpressionRes::from_variable(String::from("nil")),
+            _ => ExpressionRes::from_variable(object.value.clone())
+        }
+    }
+
+    fn execute_for_assignment(&self, object: &Assignment) -> ExpressionRes {
+        let x = object.identifier.as_ref().accept(Rc::new(self));
+        let value = object.value.as_ref().accept(Rc::new(self));
+        let res = ExpressionRes::copy(&value);
+        self.envs.borrow().assign_to_existing(x.str.to_string(), value);
+        res
+    }
+
+    fn execute_for_logical(&self, object: &Logical) -> ExpressionRes {
+        let mut rhs_res = Rc::new(object.rhs.as_ref().accept(Rc::new(self)));
+        let mut lhs_res = Rc::new(object.lhs.as_ref().accept(Rc::new(self)));
+
+        if rhs_res.type_ == Variable {
+            rhs_res = self.envs.borrow().lookup_var(rhs_res.str.to_string());
+        }
+
+        if lhs_res.type_ == Variable {
+            lhs_res = self.envs.borrow().lookup_var(lhs_res.str.to_string());
+        }
+
+        if lhs_res.type_ == ExprResType::Boolean && lhs_res.eq_type(&rhs_res) {
+            if object.token.token_type == TokenType::And {
+                ExpressionRes::from_bool(lhs_res.boolean && rhs_res.boolean)
+            } else if object.token.token_type == TokenType::Or {
+                ExpressionRes::from_bool(lhs_res.boolean || rhs_res.boolean)
+            } else {
+                panic!("cannot evaluate logical expression for {:#?} {:#?}", &lhs_res, &rhs_res)
+            }
+        } else {
+            panic!("cannot evaluate logical expression for {:#?} {:#?}", &lhs_res, &rhs_res)
+        }
     }
 }

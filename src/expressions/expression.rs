@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 
-use crate::expressions::visitor::{Visitor};
+use crate::expressions::visitor::{ExpressionInterpreter, Visitor};
 use crate::token::{Token, TokenType};
 
 pub trait Expression<T>: Debug {
@@ -146,12 +146,55 @@ impl Expression<ExpressionRes> for VariableExpr {
 
 impl Debug for VariableExpr {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("LiteralExpr")
+        f.debug_struct("VariableExpr")
             .field("token", &self.token_type)
             .field("value", &self.value)
             .finish()
     }
 }
+
+pub struct Assignment {
+    pub identifier: Box<dyn Expression<ExpressionRes>>,
+    pub value: Box<dyn Expression<ExpressionRes>>,
+}
+
+impl Expression<ExpressionRes> for Assignment {
+    fn accept(&self, visitor: Rc<&dyn Visitor<ExpressionRes>>) -> ExpressionRes {
+        visitor.execute_for_assignment(self)
+    }
+}
+
+impl Debug for Assignment {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Assignment")
+            .field("identifier", &self.identifier)
+            .field("value", &self.value)
+            .finish()
+    }
+}
+
+pub struct Logical {
+    pub token: Token,
+    pub rhs: Box<dyn Expression<ExpressionRes>>,
+    pub lhs: Box<dyn Expression<ExpressionRes>>,
+}
+
+impl Debug for Logical {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BinaryExpr")
+            .field("token", &self.token)
+            .field("lhs", &self.lhs)
+            .field("rhs", &self.rhs)
+            .finish()
+    }
+}
+
+impl Expression<ExpressionRes> for Logical {
+    fn accept(&self, visitor: Rc<&dyn Visitor<ExpressionRes>>) -> ExpressionRes {
+        visitor.execute_for_logical(self)
+    }
+}
+
 
 #[derive(Debug)]
 pub struct ExpressionRes {
@@ -161,9 +204,24 @@ pub struct ExpressionRes {
     pub boolean: bool,
 }
 
-#[derive(Debug, Eq, PartialEq)]
+impl ExpressionRes {
+    pub fn copy(p: &ExpressionRes) -> ExpressionRes {
+        ExpressionRes {
+            type_: p.type_.clone(),
+            str: p.str.clone(),
+            number: p.number.clone(),
+            boolean: p.boolean.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub enum ExprResType {
-    String, Number, Boolean, Variable, Nil
+    String,
+    Number,
+    Boolean,
+    Variable,
+    Nil,
 }
 
 impl ExpressionRes {
@@ -196,7 +254,7 @@ impl ExpressionRes {
 
     pub fn from_variable(str: String) -> ExpressionRes {
         ExpressionRes {
-            type_ : ExprResType::Variable,
+            type_: ExprResType::Variable,
             str,
             number: 0,
             boolean: false,
@@ -220,36 +278,9 @@ impl ExpressionRes {
         match self.type_ {
             ExprResType::String => self.str.clone(),
             ExprResType::Number => self.number.to_string(),
-            ExprResType::Boolean => if self.boolean { String::from("true") }else { String::from("false")},
+            ExprResType::Boolean => if self.boolean { String::from("true") } else { String::from("false") },
             ExprResType::Nil => String::from("nil"),
             ExprResType::Variable => self.str.clone(),
         }
     }
-}
-
-#[test]
-fn visitor_test() {
-    let token = Token {
-        token_type: TokenType::Minus,
-        value: "".to_string(),
-        line: 0,
-    };
-    let equality = BinaryExpr {
-        token,
-        rhs: Box::new(LiteralExpr {
-            token_type: TokenType::Number,
-            value: "10".to_string(),
-        }),
-        lhs: Box::new(LiteralExpr {
-            token_type: TokenType::Number,
-            value: "1".to_string(),
-        }),
-    };
-    let expr = Expr {
-        value: String::from("here"),
-        equality: Some(Box::new(equality)),
-    };
-    let visitor = ExpressionInterpreter {};
-    let res = expr.accept(Rc::new(visitor));
-    println!("{:?}", res)
 }
