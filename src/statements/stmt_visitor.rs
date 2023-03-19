@@ -33,10 +33,9 @@ impl StmtVisitor for StatementInterpreter {
                     self.eval(body);
                 } else {
                     match else_body.as_ref() {
-                        None => { }
-                        Some(value) => { self.eval(value)}
+                        None => {}
+                        Some(value) => { self.eval(value) }
                     };
-
                 }
             }
             Statement::WhileStatement { expr, body: statements } => {
@@ -49,7 +48,45 @@ impl StmtVisitor for StatementInterpreter {
                 }
             }
             Statement::ForStatement { initiation, condition, increment, body } => {
+                match initiation {
+                    None => {}
+                    Some(value) => { self.eval(value) }
+                }
 
+                let mut res1 = ExpressionRes::from_bool(true);
+
+                match condition {
+                    None => { res1 = ExpressionRes::from_bool(false) }
+                    Some(value) => {
+                        let statement = value.clone().deref();
+                        match statement {
+                            Statement::Stmt { expr } => {
+                                res1 = expr.accept(Rc::new(self.expression_visitor.as_ref()));
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+
+                while res1.boolean {
+                    self.eval(body);
+                    match increment {
+                        None => {}
+                        Some(value) => { self.eval(value) }
+                    }
+                    match condition {
+                        None => { res1 = ExpressionRes::from_bool(false) }
+                        Some(value) => {
+                            let statement = value.clone().deref();
+                            match statement {
+                                Statement::Stmt { expr } => {
+                                    res1 = expr.accept(Rc::new(self.expression_visitor.as_ref()));
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                }
             }
             Statement::PrintStatement { expr } => {
                 let res = expr.accept(Rc::new(self.expression_visitor.as_ref()));

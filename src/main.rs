@@ -20,7 +20,7 @@ mod parser_tests;
 
 
 fn main() {
-    let program = get_statement(get_fizzbuzz());
+    let program = get_statement(get_for_loop());
     // debug(&program);
     let mut interpreter = StatementInterpreter::new_default();
     interpreter.interpret(program);
@@ -98,6 +98,21 @@ fn get_fizzbuzz() -> String {
         print \"fizzbuzz\";
         }
         x = x + 1;
+    }
+    EOF;".to_string()
+}
+
+fn get_for_loop() -> String {
+    "for (var x = 0; x < 100; x = x +1) {
+        if (x % 3 == 0) {
+        print \"fizz\";
+        }
+        if (x % 5 == 0) {
+        print \"buzz\";
+        }
+        if (x % 5 == 0 and x % 3 == 0) {
+        print \"fizzbuzz\";
+        }
     }
     EOF;".to_string()
 }

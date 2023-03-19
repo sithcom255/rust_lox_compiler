@@ -6,7 +6,7 @@ use crate::expressions::expression::{Expression, ExpressionRes};
 #[derive(Debug)]
 pub enum Statement {
     Stmt {
-        expr: Box<dyn Expression<ExpressionRes>>,
+         expr: Box<dyn Expression<ExpressionRes>>,
     },
     IfStatement {
         expr: Box<dyn Expression<ExpressionRes>>,
