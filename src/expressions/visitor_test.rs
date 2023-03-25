@@ -5,7 +5,9 @@ use std::rc::Rc;
 
 use crate::expressions::expression::{BinaryExpr, Expr, Expression, ExpressionRes, LiteralExpr, Logical, UnaryExpr};
 use crate::expressions::visitor::{ExpressionInterpreter, Visitor};
-use crate::token::{Token, TokenType};
+use crate::parser::Parser;
+use crate::statements::statement::Statement;
+use crate::token::{Scanner, Token, TokenType};
 use crate::token::TokenType::And;
 
 #[test]
@@ -102,6 +104,22 @@ fn logical_test() {
     };
     let res = logical.accept(Rc::clone(&visitor));
     assert!(res.boolean);
+}
+
+#[test]
+fn variable_propagation() {
+    let string = "var x  = 1;\
+         var y = x;\
+         print y;\
+         EOF;".to_string();
+    let mut parser = get_statements(string);
+    let x1 = get_visitor();
+    // let res = expr.accept(Rc::new(&*x1));
+}
+
+fn get_statements(statement: String) -> Vec<Box<Statement>> {
+    let vec = Scanner::new().tokenize_string(statement.to_string());
+    Parser::new(vec).program()
 }
 
 

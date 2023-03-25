@@ -1,8 +1,35 @@
 use std::fmt::{Debug, Formatter};
+use std::ops::Add;
 use std::rc::Rc;
 
 use crate::expressions::visitor::{ExpressionInterpreter, Visitor};
+use crate::program::runtime::Method;
 use crate::token::{Token, TokenType};
+
+pub enum Expression {
+    Expr {
+        value: String,
+        equality: Option<Box<Expression>>,
+    },
+    Equality {
+        token: Token,
+        value: String,
+
+    },
+    Comparison {
+        token_type: TokenType,
+        value: String,
+    },
+    GroupingExpr {
+        value: Box<Expression>,
+    },
+    BinaryExpr {
+        token: Token,
+        rhs: Box<Expression>,
+        lhs: Box<Expression>,
+    },
+}
+
 
 pub trait Expression<T>: Debug {
     fn accept(&self, visitor: Rc<&dyn Visitor<T>>) -> T;
@@ -196,12 +223,34 @@ impl Expression<ExpressionRes> for Logical {
 }
 
 
+pub struct Call {
+    pub identifier: Box<dyn Expression<ExpressionRes>>,
+    pub args: Vec<Box<dyn Expression<ExpressionRes>>>,
+}
+
+impl Debug for Call {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Call")
+            .field("identifier", &self.identifier)
+            .field("args", &self.args)
+            .finish()
+    }
+}
+
+impl Expression<ExpressionRes> for Call {
+    fn accept(&self, visitor: Rc<&dyn Visitor<ExpressionRes>>) -> ExpressionRes {
+        visitor.execute_for_call(self)
+    }
+}
+
+
 #[derive(Debug)]
 pub struct ExpressionRes {
     pub type_: ExprResType,
     pub str: String,
     pub number: isize,
     pub boolean: bool,
+    pub method: Option<Method>,
 }
 
 impl ExpressionRes {
@@ -211,6 +260,7 @@ impl ExpressionRes {
             str: p.str.clone(),
             number: p.number.clone(),
             boolean: p.boolean.clone(),
+            method: None,
         }
     }
 }
@@ -220,7 +270,8 @@ pub enum ExprResType {
     String,
     Number,
     Boolean,
-    Variable,
+    Identifier,
+    Function,
     Nil,
 }
 
@@ -231,6 +282,7 @@ impl ExpressionRes {
             str,
             number: 0,
             boolean: false,
+            method: None,
         }
     }
 
@@ -240,6 +292,7 @@ impl ExpressionRes {
             str: String::new(),
             number,
             boolean: false,
+            method: None,
         }
     }
 
@@ -249,24 +302,37 @@ impl ExpressionRes {
             str: String::new(),
             number: 0,
             boolean,
+            method: None,
         }
     }
 
     pub fn from_variable(str: String) -> ExpressionRes {
         ExpressionRes {
-            type_: ExprResType::Variable,
+            type_: ExprResType::Identifier,
             str,
             number: 0,
             boolean: false,
+            method: None,
+        }
+    }
+
+    pub fn from_method(method: Method) -> ExpressionRes {
+        ExpressionRes {
+            type_: ExprResType::Function,
+            str: "fun".to_string().add(&method.name.clone()),
+            number: 0,
+            boolean: false,
+            method: Some(method),
         }
     }
 
     pub fn from_none() -> ExpressionRes {
         ExpressionRes {
             type_: ExprResType::Nil,
-            str: "".to_string(),
+            str: "nil".to_string(),
             number: 0,
             boolean: false,
+            method: None,
         }
     }
 
@@ -280,7 +346,8 @@ impl ExpressionRes {
             ExprResType::Number => self.number.to_string(),
             ExprResType::Boolean => if self.boolean { String::from("true") } else { String::from("false") },
             ExprResType::Nil => String::from("nil"),
-            ExprResType::Variable => self.str.clone(),
+            ExprResType::Identifier => self.str.clone(),
+            ExprResType::Function => { self.str.clone() }
         }
     }
 }

@@ -1,9 +1,10 @@
 use std::cell::RefCell;
 use std::fmt::{Debug, Formatter};
+use std::ops::Deref;
 use std::rc::Rc;
 
-use crate::expressions::expression::{Assignment, BinaryExpr, Comparison, Equality, Expr, ExpressionRes, ExprResType, GroupingExpr, LiteralExpr, Logical, UnaryExpr, VariableExpr};
-use crate::expressions::expression::ExprResType::Variable;
+use crate::expressions::expression::{Assignment, BinaryExpr, Call, Comparison, Equality, Expr, ExpressionRes, ExprResType, GroupingExpr, LiteralExpr, Logical, UnaryExpr, VariableExpr};
+use crate::expressions::expression::ExprResType::{Function, Identifier, Nil};
 use crate::program::program::ProgramEnvs;
 use crate::token::TokenType;
 
@@ -18,6 +19,7 @@ pub trait Visitor<T> {
     fn execute_for_variable(&self, object: &VariableExpr) -> T;
     fn execute_for_assignment(&self, object: &Assignment) -> T;
     fn execute_for_logical(&self, object: &Logical) -> T;
+    fn execute_for_call(&self, object: &Call) -> T;
 }
 
 #[derive(Clone)]
@@ -71,12 +73,14 @@ impl Visitor<ExpressionRes> for ExpressionInterpreter {
         let mut rhs_res = Rc::new(object.rhs.as_ref().accept(Rc::new(self)));
         let mut lhs_res = Rc::new(object.lhs.as_ref().accept(Rc::new(self)));
 
-        if rhs_res.type_ == Variable {
-            rhs_res = self.envs.borrow().lookup_var(rhs_res.str.to_string());
+        if rhs_res.type_ == Identifier {
+            let rc = self.envs.borrow().lookup_var(rhs_res.str.to_string());
+            rhs_res = Rc::new(ExpressionRes::copy(rc.borrow().deref()));
         }
 
-        if lhs_res.type_ == Variable {
-            lhs_res = self.envs.borrow().lookup_var(lhs_res.str.to_string());
+        if lhs_res.type_ == Identifier {
+            let rc = self.envs.borrow().lookup_var(rhs_res.str.to_string());
+            rhs_res = Rc::new(ExpressionRes::copy(rc.borrow().deref()));
         }
 
 
@@ -150,21 +154,38 @@ impl Visitor<ExpressionRes> for ExpressionInterpreter {
     fn execute_for_assignment(&self, object: &Assignment) -> ExpressionRes {
         let x = object.identifier.as_ref().accept(Rc::new(self));
         let value = object.value.as_ref().accept(Rc::new(self));
-        let res = ExpressionRes::copy(&value);
-        self.envs.borrow().assign_to_existing(x.str.to_string(), value);
-        res
+        match value.type_ {
+            Identifier => {
+                let rc = self.envs.borrow().lookup_var(value.str.clone());
+                rc.replace(ExpressionRes::copy(&value));
+                return ExpressionRes::copy(&value);
+            }
+            Function => {
+                value
+            }
+            Nil => {
+                self.envs.borrow().remove_var(x.str);
+                ExpressionRes::from_none()
+            }
+            _ => {
+                let res = ExpressionRes::copy(&value);
+                self.envs.borrow().assign_to_existing(x.str.to_string(), value);
+                res
+            }
+        }
     }
-
     fn execute_for_logical(&self, object: &Logical) -> ExpressionRes {
         let mut rhs_res = Rc::new(object.rhs.as_ref().accept(Rc::new(self)));
         let mut lhs_res = Rc::new(object.lhs.as_ref().accept(Rc::new(self)));
 
-        if rhs_res.type_ == Variable {
-            rhs_res = self.envs.borrow().lookup_var(rhs_res.str.to_string());
+        if rhs_res.type_ == Identifier {
+            let rc = self.envs.borrow().lookup_var(rhs_res.str.to_string());
+            rhs_res = Rc::new(ExpressionRes::copy(rc.borrow().deref()));
         }
 
-        if lhs_res.type_ == Variable {
-            lhs_res = self.envs.borrow().lookup_var(lhs_res.str.to_string());
+        if lhs_res.type_ == Identifier {
+            let rc1 = self.envs.borrow().lookup_var(lhs_res.str.to_string());
+            lhs_res = Rc::new(ExpressionRes::copy(rc1.borrow().deref()));
         }
 
         if lhs_res.type_ == ExprResType::Boolean && lhs_res.eq_type(&rhs_res) {
@@ -178,5 +199,21 @@ impl Visitor<ExpressionRes> for ExpressionInterpreter {
         } else {
             panic!("cannot evaluate logical expression for {:#?} {:#?}", &lhs_res, &rhs_res)
         }
+    }
+
+    fn execute_for_call(&self, object: &Call) -> ExpressionRes {
+        let identifier = object.identifier.accept(Rc::new(self));
+        let mut arguments = vec![];
+        for arg in &object.args {
+            let mut res = arg.accept(Rc::new(self));
+            if (res.type_ == ExprResType::Identifier ) {
+
+            }
+            arguments.push(res)
+        }
+        let method = self.envs.borrow_mut().lookup_var(identifier.str.clone());
+
+
+        ExpressionRes::from_none()
     }
 }

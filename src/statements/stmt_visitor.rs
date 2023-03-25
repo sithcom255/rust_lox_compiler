@@ -4,9 +4,10 @@ use std::os::linux::raw::stat;
 use std::rc::Rc;
 
 use crate::expressions::expression::ExpressionRes;
-use crate::expressions::expression::ExprResType::{Boolean, Variable};
+use crate::expressions::expression::ExprResType::{Boolean, Identifier};
 use crate::expressions::visitor::{ExpressionInterpreter, Visitor};
 use crate::program::program::ProgramEnvs;
+use crate::program::runtime::Method;
 use crate::statements::statement::Statement;
 
 pub trait StmtVisitor {
@@ -16,6 +17,7 @@ pub trait StmtVisitor {
 pub struct StatementInterpreter {
     pub expression_visitor: Rc<dyn Visitor<ExpressionRes>>,
     pub envs: Rc<RefCell<ProgramEnvs>>,
+    pub statements: Vec<Box<Statement>>,
 }
 
 impl StmtVisitor for StatementInterpreter {
@@ -37,6 +39,19 @@ impl StmtVisitor for StatementInterpreter {
                         Some(value) => { self.eval(value) }
                     };
                 }
+            }
+            Statement::FunStatement { identifier, args, block } => {
+                let mut arguments = vec![];
+                for arg in args {
+                    arguments.push(arg.accept(Rc::new(self.expression_visitor.as_ref())));
+                }
+                let body1 = self.statements.remove()
+                let method = ExpressionRes::from_method(Method::new(identifier.value.clone(),
+                                                                    arguments,
+                                                                    body1));
+
+                self.envs.try_borrow_mut().unwrap().define_at_top(identifier.value.clone(),
+                                                                  method);
             }
             Statement::WhileStatement { expr, body: statements } => {
                 let condition = expr.clone().deref();
@@ -90,9 +105,10 @@ impl StmtVisitor for StatementInterpreter {
             }
             Statement::PrintStatement { expr } => {
                 let res = expr.accept(Rc::new(self.expression_visitor.as_ref()));
-                if res.type_ == Variable {
+
+                if res.type_ == Identifier {
                     let x = self.lookup_variable(res.str);
-                    println!("{}", x.print())
+                    println!("{}", x.borrow().print())
                 } else {
                     println!("{}", res.print())
                 }
@@ -113,10 +129,15 @@ impl StmtVisitor for StatementInterpreter {
             Statement::VarDeclaration { identifier, expr } => {
                 let identifier_res = identifier.as_ref().accept(Rc::new(self.expression_visitor.as_ref()));
                 let content = expr.as_ref().unwrap().accept(Rc::new(self.expression_visitor.as_ref()));
-                if identifier_res.type_ == Variable {
+                if content.type_ == Identifier {
                     let mut ref_mut = self.envs.try_borrow_mut().unwrap();
                     let envs = ref_mut.deref_mut();
-                    envs.define_at_top(identifier_res.str, content);
+                    let value = envs.lookup_var(content.str);
+                    envs.define_ref_at_top(identifier_res.str, value.clone())
+                } else {
+                    let mut ref_mut = self.envs.try_borrow_mut().unwrap();
+                    let envs = ref_mut.deref_mut();
+                    envs.define_at_top(identifier_res.str, ExpressionRes::copy(&content))
                 };
             }
         }
@@ -130,6 +151,7 @@ impl StatementInterpreter {
         StatementInterpreter {
             expression_visitor,
             envs,
+            statements: vec![],
         }
     }
 
@@ -137,16 +159,18 @@ impl StatementInterpreter {
         StatementInterpreter {
             expression_visitor: Rc::new(expression_visitor),
             envs: Rc::new(RefCell::new(ProgramEnvs::new())),
+            statements: vec![],
         }
     }
 
     pub fn interpret(&mut self, program: Vec<Box<Statement>>) {
-        for statement in program {
+        self.statements = program;
+        for statement in self.statements {
             self.eval(&*statement)
         }
     }
 
-    pub fn lookup_variable(&self, name: String) -> Rc<ExpressionRes> {
+    pub fn lookup_variable(&self, name: String) -> Rc<RefCell<ExpressionRes>> {
         self.envs.borrow().lookup_var(name)
     }
 
@@ -164,7 +188,7 @@ fn test_lookup() {
     let interpreter = StatementInterpreter::new_default();
     interpreter.insert_variable(String::from("test"), res);
     let rc = interpreter.lookup_variable(String::from("test"));
-    assert_eq!(rc.str, "test")
+    assert_eq!(rc.borrow().str, "test");
 }
 
 #[test]
@@ -173,5 +197,5 @@ fn test_null() {
     let interpreter = StatementInterpreter::new_default();
     interpreter.insert_variable(String::from("test"), res);
     let rc = interpreter.lookup_variable(String::from("test"));
-    assert_eq!(rc.str, "test")
+    assert_eq!(rc.borrow().str, "test");
 }

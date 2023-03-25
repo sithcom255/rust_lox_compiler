@@ -2,6 +2,7 @@ use std::collections::LinkedList;
 use std::fmt::Debug;
 
 use crate::expressions::expression::{Expression, ExpressionRes};
+use crate::token::Token;
 
 #[derive(Debug)]
 pub enum Statement {
@@ -12,6 +13,11 @@ pub enum Statement {
         expr: Box<dyn Expression<ExpressionRes>>,
         body: Box<Statement>,
         else_body: Option<Box<Statement>>,
+    },
+    FunStatement {
+        identifier: Token,
+        args: Vec<Box<dyn Expression<ExpressionRes>>>,
+        block: Option<Box<Statement>>,
     },
     WhileStatement {
         expr: Box<dyn Expression<ExpressionRes>>,

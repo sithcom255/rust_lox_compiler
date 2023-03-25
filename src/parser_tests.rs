@@ -1,7 +1,9 @@
+use crate::expressions::expression::{Call, Expression, ExpressionRes};
 use crate::parser::Parser;
-use crate::token::{Scanner, Token, TokenType};
-use crate::Statement::{BlockStatement, IfStatement, ForStatement};
+use crate::Statement::{BlockStatement, ForStatement, FunStatement, IfStatement, Stmt};
+use crate::statements::statement::Statement;
 use crate::statements::statement::Statement::WhileStatement;
+use crate::token::{Scanner, Token, TokenType};
 use crate::token::TokenType::While;
 
 #[test]
@@ -112,7 +114,7 @@ fn parse_desug_for() {
 #[test]
 fn parse_mod() {
     let statement =
-    "var x = 3;
+        "var x = 3;
         if (x % 3 == 0) {
         print \"fizz\";
         }";
@@ -120,6 +122,43 @@ fn parse_mod() {
     let mut parser = Parser::new(vec).program();
     println!("{:#?}", parser);
 }
+
+#[test]
+fn parse_function() {
+    let statement =
+
+        "fun ok( test ) {
+        print \"fizz\";
+        }";
+    let vec = Scanner::new().tokenize_string(statement.to_string());
+    let mut parser = Parser::new(vec).program();
+    println!("{:#?}", parser);
+
+    assert!(matches!(*parser[0], FunStatement {..}));
+}
+
+#[test]
+fn assignment() {
+    let statement =
+        "var x  = 1;\
+         y = x;";
+    let vec = Scanner::new().tokenize_string(statement.to_string());
+    let mut parser = Parser::new(vec).program();
+    println!("{:#?}", parser);
+
+    assert!(matches!(*parser[0], FunStatement {..}));
+}
+
+
+#[test]
+fn call() {
+    let statement =
+        "nig();";
+    let vec = Scanner::new().tokenize_string(statement.to_string());
+    let mut parser = Parser::new(vec).program();
+    println!("{:#?}", parser);
+}
+
 
 
 

@@ -19,8 +19,19 @@ mod program;
 mod parser_tests;
 
 
+fn test() -> String {
+    "var x  = 1;\
+     print x;\
+     var y = x;\
+     x = 2;
+     x = nil;
+     print y;\
+     print x;\
+     EOF;".to_string()
+}
+
 fn main() {
-    let program = get_statement(get_for_loop());
+    let program = get_statement(test());
     // debug(&program);
     let mut interpreter = StatementInterpreter::new_default();
     interpreter.interpret(program);
@@ -40,9 +51,18 @@ fn get_statement(program: String) -> Vec<Box<Statement>> {
     program
 }
 
+
 fn multiple_assigments() -> String {
     "var x;
      var y = x = 2;
+     print y;
+     EOF;".to_string()
+}
+
+fn value_propagation() -> String {
+    "var x =1;
+     var y = x + 2;
+     x = 2;
      print y;
      EOF;".to_string()
 }

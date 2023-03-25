@@ -33,6 +33,14 @@ impl ProgramEnvs {
         self.envs.pop()
     }
 
+    pub fn define_at_top(&self, name: String, value: ExpressionRes) {
+        self.assign_value_to_var(self.envs.len() - 1, name.clone(), value);
+    }
+
+    pub fn define_ref_at_top(&self, name: String, value: Rc<RefCell<ExpressionRes>>) {
+        self.assign_ref_to_var(self.envs.len() - 1, name.clone(), value);
+    }
+
     pub fn assign_value_to_var(&self, index: usize, name: String, value: ExpressionRes) {
         let rc = self.envs[index].clone();
         let mut ref_mut = rc.try_borrow_mut().unwrap();
@@ -40,24 +48,36 @@ impl ProgramEnvs {
         x.define_variable(name, value);
     }
 
-    pub fn define_at_top(&self, name: String, value: ExpressionRes) {
-        self.assign_value_to_var(self.envs.len() - 1, name, value)
+    pub fn redefine_value_to_var(&self, index: usize, name: String, value: ExpressionRes) {
+        let rc = self.envs[index].clone();
+        let mut ref_mut = rc.try_borrow_mut().unwrap();
+        let x = ref_mut.deref_mut();
+        x.redefine_variable(name, value);
+    }
+
+    pub fn assign_ref_to_var(&self, index: usize, name: String, value:  Rc<RefCell<ExpressionRes>>) {
+        let rc = self.envs[index].clone();
+        let mut ref_mut = rc.try_borrow_mut().unwrap();
+        let x = ref_mut.deref_mut();
+        x.define_ref(name, value);
     }
 
     pub fn assign_to_existing(&self, name: String, value: ExpressionRes) {
-        let mut insert = None;
-        for i in (0..self.envs.len()).rev() {
-            match self.envs[i].borrow_mut().get_variable(name.clone()) {
-                None => { continue; }
-                Some(found) => {
-                    insert = Some(i);
-                    break; }
-            };
-        }
-        self.assign_value_to_var(insert.unwrap(), name, value);
+        let insert = self.get_index(&name);
+        self.redefine_value_to_var(insert.unwrap(), name, value);
     }
 
-    pub fn lookup_var(&self, name: String) -> Rc<ExpressionRes> {
+    pub fn remove_var(&self, name: String ) {
+        let option = self.get_index(&name);
+        match option {
+            None => {}
+            Some(index) => {
+                self.envs[index].borrow_mut().remove_var(name);
+            }
+        }
+    }
+
+    pub fn lookup_var(&self, name: String) -> Rc<RefCell<ExpressionRes>> {
         for i in (0..self.envs.len()).rev() {
             match self.envs[i].borrow_mut().get_variable(name.clone()) {
                 None => { continue; }
@@ -65,6 +85,22 @@ impl ProgramEnvs {
             };
         }
         panic!("missing variable {:?}", name)
+    }
+
+    fn get_index(&self, name: &String) -> Option<usize> {
+        let mut insert = None;
+        for i in (0..self.envs.len()).rev() {
+            match self.envs[i].borrow_mut().get_variable(name.clone()) {
+                None => {
+                    continue;
+                }
+                Some(found) => {
+                    insert = Some(i);
+                    break;
+                }
+            };
+        }
+        insert
     }
 }
 
@@ -93,9 +129,30 @@ fn push_scoped() {
 
     println!("{:#?}", envs);
     let rc = envs.lookup_var(String::from("x"));
-    assert_eq!("scoped", rc.str);
+    assert_eq!("scoped", rc.borrow().str);
     envs.pop();
     println!("{:#?}", envs);
     let rc2 = envs.lookup_var(String::from("x"));
-    assert_eq!("Value", rc2.str);
+    assert_eq!("Value", rc2.borrow().str);
+}
+
+#[test]
+fn remove() {
+    let mut envs = ProgramEnvs::new();
+    envs.define_at_top(
+        String::from("x"),
+        ExpressionRes::from_str(String::from("Value")));
+    envs.push();
+    envs.define_at_top(
+        String::from("x"),
+        ExpressionRes::from_str(String::from("scoped")));
+
+    println!("{:#?}", envs);
+    let rc = envs.lookup_var(String::from("x"));
+    assert_eq!("scoped", rc.borrow().str);
+    envs.remove_var("x".to_string());
+    let rc1 = envs.lookup_var(String::from("x"));
+    println!("{:#?}", envs);
+    let rc2 = envs.lookup_var(String::from("x"));
+    assert_eq!("nil", rc2.borrow().str);
 }

@@ -1,10 +1,10 @@
 use std::collections::LinkedList;
 
-use crate::expressions::expression::{Assignment, BinaryExpr, Expr, Expression, ExpressionRes, GroupingExpr, LiteralExpr, Logical, UnaryExpr, VariableExpr};
+use crate::expressions::expression::{Assignment, BinaryExpr, Call, Expr, Expression, ExpressionRes, GroupingExpr, LiteralExpr, Logical, UnaryExpr, VariableExpr};
 use crate::statements::statement::Statement;
-use crate::statements::statement::Statement::{BlockStatement, ForStatement, IfStatement, Stmt, WhileStatement};
+use crate::statements::statement::Statement::{BlockStatement, ForStatement, FunStatement, IfStatement, Stmt, WhileStatement};
 use crate::token::{Scanner, Token, TokenType};
-use crate::token::TokenType::{And, Else, LeftBrace, LeftParen, Or, RightBrace, RightParen, Semicolon};
+use crate::token::TokenType::{And, Comma, Else, Equal, LeftBrace, LeftParen, Or, RightBrace, RightParen, Semicolon};
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -62,6 +62,7 @@ impl Parser {
         match self.get_current().token_type {
             TokenType::Print => self.print_statement(),
             TokenType::If => self.if_statement(),
+            TokenType::Fun => self.function(),
             TokenType::While => self.while_block(),
             TokenType::For => self.for_loop(),
             TokenType::LeftBrace => self.block(),
@@ -76,10 +77,42 @@ impl Parser {
         self.consume(RightParen, "Expected a brace after condition".to_string());
         let body = self.block().unwrap();
         if self.peek_next(Else) {
-            let else_body = self.block();
-            return Some(Box::new(IfStatement { expr, body, else_body }));
+            self.advance();
+            if self.peek_next(LeftBrace) {
+                let else_body = self.block();
+                return Some(Box::new(IfStatement { expr, body, else_body }));
+            }
+            panic!(r"missing {{ after else ");
         }
         Some(Box::new(IfStatement { expr, body, else_body: None }))
+    }
+
+    fn function(&mut self) -> Option<Box<Statement>> {
+        self.advance();
+        let identifier = match self.get_current().token_type {
+            TokenType::Identifier => {  self.get_current().clone() }
+            _ => { panic!("no identifier after fn declaration found: {:#?}", self.get_current()) }
+        };
+        self.advance();
+
+        self.consume(LeftParen, "please define function (".to_string());
+        let mut args = Vec::<Box<dyn Expression<ExpressionRes>>>::new();
+        while !self.peek_next(RightParen) {
+            args.push(self.expression().unwrap());
+            if self.peek_next(TokenType::Comma) {
+                self.advance();
+                if self.peek_next(RightParen) {
+                    panic!("found rightparen after comman in fun declaration");
+                }
+            }
+        }
+        self.consume(RightParen, "please define function with )".to_string());
+        let option = self.block();
+        Some(Box::new(FunStatement {
+            identifier,
+            args,
+            block: option,
+        }))
     }
 
     fn while_block(&mut self) -> Option<Box<Statement>> {
@@ -98,7 +131,8 @@ impl Parser {
             TokenType::Var => {
                 self.declaration()
             }
-            TokenType::Semicolon => { None
+            TokenType::Semicolon => {
+                None
             }
             _ => {
                 self.expression_statement()
@@ -143,19 +177,6 @@ impl Parser {
         Some(Box::new(Statement::PrintStatement { expr: expression.unwrap() }))
     }
 
-    pub fn expression_statement(&mut self) -> Option<Box<Statement>> {
-        match self.expression() {
-            None => { None }
-            Some(value) => {
-                self.consume(Semicolon, "Ending of expression".to_string());
-                Some(Box::new(
-                    Stmt {
-                        expr: value
-                    }))
-            }
-        }
-    }
-
     pub fn block(&mut self) -> Option<Box<Statement>> {
         self.advance();
         let mut list: LinkedList<Box<Statement>> = Default::default();
@@ -176,29 +197,41 @@ impl Parser {
         Some(Box::new(BlockStatement { statements: list }))
     }
 
+    pub fn expression_statement(&mut self) -> Option<Box<Statement>> {
+        match self.expression() {
+            None => { None }
+            Some(value) => {
+                self.consume(Semicolon, "Ending of expression".to_string());
+                Some(Box::new(
+                    Stmt {
+                        expr: value
+                    }))
+            }
+        }
+    }
+
     pub fn expression(&mut self) -> Option<Box<dyn Expression<ExpressionRes>>> {
         match self.assignment() {
             Some(value) => {
-                Some(Box::new(Expr {
-                    value: "".to_string(),
-                    equality: Some(value),
-                }))
+                Some(value)
             }
             None => { None }
         }
     }
 
     pub fn assignment(&mut self) -> Option<Box<dyn Expression<ExpressionRes>>> {
-        let lhs = Expr {
-            value: "".to_string(),
-            equality: Some(self.logic_and().unwrap()),
+        let lhs = match self.logic_or() {
+            None => { return None; }
+            Some(value) => {
+                value
+            }
         };
         if self.current < self.size {
             return match self.get_current().token_type {
                 TokenType::Equal => {
                     self.advance();
                     let value = self.assignment().unwrap();
-                    Some(Box::new(Assignment { identifier: Box::new(lhs), value }))
+                    Some(Box::new(Assignment { identifier: lhs, value }))
                 }
                 TokenType::Or => {
                     let token = self.get_current().clone();
@@ -206,11 +239,11 @@ impl Parser {
                     let rhs = self.logic_or();
                     Some(Box::new(Logical {
                         token,
-                        lhs: Box::new(lhs),
+                        lhs,
                         rhs: rhs.unwrap_or_else(|| panic!("there should be second part of bool expr after or")),
                     }))
                 }
-                _ => { Some(Box::new(lhs)) }
+                _ => { Some(lhs) }
             };
         }
         None
@@ -255,7 +288,11 @@ impl Parser {
     }
 
     pub fn equality(&mut self) -> Option<Box<dyn Expression<ExpressionRes>>> {
-        let mut lhs = self.comparison().unwrap();
+        let mut lhs = match self.comparison() {
+            None => { return None; }
+            Some(value) => { value }
+        };
+        ;
 
         while self.current < self.size && match self.get_current().token_type {
             TokenType::BangEqual |
@@ -271,7 +308,10 @@ impl Parser {
     }
 
     fn comparison(&mut self) -> Option<Box<dyn Expression<ExpressionRes>>> {
-        let mut lhs = self.term().unwrap();
+        let mut lhs = match self.term() {
+            None => { return None; }
+            Some(value) => { value }
+        };
 
         while self.current < self.size && match self.get_current().token_type {
             TokenType::Greater |
@@ -289,7 +329,10 @@ impl Parser {
     }
 
     fn term(&mut self) -> Option<Box<dyn Expression<ExpressionRes>>> {
-        let mut lhs = self.factor().unwrap();
+        let mut lhs = match self.factor() {
+            None => { return None; }
+            Some(value) => { value }
+        };
 
         while self.current < self.size && match self.get_current().token_type {
             TokenType::Minus |
@@ -305,7 +348,10 @@ impl Parser {
     }
 
     fn factor(&mut self) -> Option<Box<dyn Expression<ExpressionRes>>> {
-        let mut lhs = self.unary().unwrap();
+        let mut lhs = match self.unary() {
+            None => { return None; }
+            Some(value) => { value }
+        };
 
         while self.current < self.size && match self.tokens[self.current].token_type {
             TokenType::Slash |
@@ -332,8 +378,45 @@ impl Parser {
             let rhs = self.unary().unwrap();
             return Some(Box::new(UnaryExpr { token, rhs }));
         };
-        return self.primary();
+        return self.call();
     }
+
+    fn call(&mut self) -> Option<Box<dyn Expression<ExpressionRes>>> {
+        let token = self.primary();
+        let mut args: Vec<Box<dyn Expression<ExpressionRes>>> = vec![];
+        if self.peek_next(LeftParen) {
+            self.advance();
+
+            match self.expression() {
+                None => {}
+                Some(value) => {
+                    args.push(value);
+                    for i in 0..255 {
+                        if !self.peek_next(Comma) {
+                            break;
+                        }
+                        match self.expression() {
+                            None => {
+                                panic!("found comma but not the argument");
+                            }
+                            Some(value) => {
+                                args.push(value);
+                            }
+                        }
+                    }
+                }
+            }
+            if self.peek_next(RightParen) {
+                self.advance();
+            } else {
+                panic!("did not find the brace after arguments, found {:?}", self.get_current());
+            }
+            Some(Box::new(Call { identifier: token.unwrap(), args }))
+        } else {
+            token
+        }
+    }
+
 
     fn primary(&mut self) -> Option<Box<dyn Expression<ExpressionRes>>> {
         let primary: Box<dyn Expression<ExpressionRes>> = match self.tokens[self.current].token_type {
@@ -359,15 +442,17 @@ impl Parser {
                 self.advance();
                 Box::new(GroupingExpr { value: expression })
             }
-            _ => {
+            TokenType::Identifier => {
                 let token = self.get_current().clone();
                 self.advance();
                 Box::new(VariableExpr { token_type: token.token_type, value: token.value })
             }
+            _ => {
+                return None;
+            }
         };
         Some(primary)
     }
-
 
     fn get_current(&self) -> &Token {
         &self.tokens[self.current]
@@ -379,15 +464,6 @@ impl Parser {
 
     fn advance(&mut self) {
         self.current += 1;
-    }
-
-    fn consume_until(&mut self, token: TokenType) {
-        while self.current < self.size && self.tokens[self.current].token_type != token {
-            self.advance();
-        }
-        if self.current < self.size && self.get_current().token_type == token {
-            self.advance();
-        }
     }
 
     fn consume(&mut self, token: TokenType, error: String) {
