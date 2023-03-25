@@ -6,6 +6,7 @@ use crate::expressions::visitor::{ExpressionInterpreter, Visitor};
 use crate::program::runtime::Method;
 use crate::token::{Token, TokenType};
 
+#[derive(Debug, Clone)]
 pub enum Expression {
     Expr {
         value: String,
@@ -28,221 +29,32 @@ pub enum Expression {
         rhs: Box<Expression>,
         lhs: Box<Expression>,
     },
-}
-
-
-pub trait Expression<T>: Debug {
-    fn accept(&self, visitor: Rc<&dyn Visitor<T>>) -> T;
-}
-
-
-pub struct Expr {
-    pub value: String,
-    pub equality: Option<Box<dyn Expression<ExpressionRes>>>,
-}
-
-
-impl Expression<ExpressionRes> for Expr {
-    fn accept(&self, visitor: Rc<&dyn Visitor<ExpressionRes>>) -> ExpressionRes {
-        visitor.execute_for_expr(self)
+    UnaryExpr {
+        token: Token,
+        rhs: Box<Expression>,
+    },
+    LiteralExpr {
+        token_type: TokenType,
+        value: String,
+    },
+    VariableExpr {
+        token_type: TokenType,
+        value: String,
+    },
+    Assignment {
+        identifier: Box<Expression>,
+        value: Box<Expression>,
+    },
+    Logical {
+        token: Token,
+        rhs: Box<Expression>,
+        lhs: Box<Expression>,
+    },
+    Call {
+       identifier: Box<Expression>,
+       args: Vec<Box<Expression>>,
     }
 }
-
-impl Debug for Expr {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Expr")
-            .field("equality", &self.equality).finish()
-    }
-}
-
-pub struct Equality {
-    pub token: Token,
-    pub value: String,
-
-}
-
-impl Expression<ExpressionRes> for Equality {
-    fn accept(&self, visitor: Rc<&dyn Visitor<ExpressionRes>>) -> ExpressionRes {
-        visitor.execute_for_equality(self)
-    }
-}
-
-impl Debug for Equality {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Equality")
-            .field("token", &self.token)
-            .finish()
-    }
-}
-
-pub struct Comparison {
-    pub token_type: TokenType,
-    pub value: String,
-}
-
-pub struct GroupingExpr {
-    pub value: Box<dyn Expression<ExpressionRes>>,
-}
-
-impl Debug for GroupingExpr {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GroupingExpr")
-            .field("value", &self.value)
-            .finish()
-    }
-}
-
-impl Expression<ExpressionRes> for GroupingExpr {
-    fn accept(&self, visitor: Rc<&dyn Visitor<ExpressionRes>>) -> ExpressionRes {
-        visitor.execute_for_grouping(self)
-    }
-}
-
-pub struct BinaryExpr {
-    pub token: Token,
-    pub rhs: Box<dyn Expression<ExpressionRes>>,
-    pub lhs: Box<dyn Expression<ExpressionRes>>,
-}
-
-impl Debug for BinaryExpr {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("BinaryExpr")
-            .field("token", &self.token)
-            .field("lhs", &self.lhs)
-            .field("rhs", &self.rhs)
-            .finish()
-    }
-}
-
-impl Expression<ExpressionRes> for BinaryExpr {
-    fn accept(&self, visitor: Rc<&dyn Visitor<ExpressionRes>>) -> ExpressionRes {
-        visitor.execute_for_binary(self)
-    }
-}
-
-pub struct UnaryExpr {
-    pub token: Token,
-    pub rhs: Box<dyn Expression<ExpressionRes>>,
-}
-
-impl Debug for UnaryExpr {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("UnaryExpr")
-            .field("token", &self.token)
-            .field("rhs", &self.rhs)
-            .finish()
-    }
-}
-
-impl Expression<ExpressionRes> for UnaryExpr {
-    fn accept(&self, visitor: Rc<&dyn Visitor<ExpressionRes>>) -> ExpressionRes {
-        visitor.execute_for_unary(self)
-    }
-}
-
-pub struct LiteralExpr {
-    pub token_type: TokenType,
-    pub value: String,
-}
-
-impl Expression<ExpressionRes> for LiteralExpr {
-    fn accept(&self, visitor: Rc<&dyn Visitor<ExpressionRes>>) -> ExpressionRes {
-        visitor.execute_for_literal(self)
-    }
-}
-
-impl Debug for LiteralExpr {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("LiteralExpr")
-            .field("token", &self.token_type)
-            .field("value", &self.value)
-            .finish()
-    }
-}
-
-pub struct VariableExpr {
-    pub token_type: TokenType,
-    pub value: String,
-}
-
-impl Expression<ExpressionRes> for VariableExpr {
-    fn accept(&self, visitor: Rc<&dyn Visitor<ExpressionRes>>) -> ExpressionRes {
-        visitor.execute_for_variable(self)
-    }
-}
-
-impl Debug for VariableExpr {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("VariableExpr")
-            .field("token", &self.token_type)
-            .field("value", &self.value)
-            .finish()
-    }
-}
-
-pub struct Assignment {
-    pub identifier: Box<dyn Expression<ExpressionRes>>,
-    pub value: Box<dyn Expression<ExpressionRes>>,
-}
-
-impl Expression<ExpressionRes> for Assignment {
-    fn accept(&self, visitor: Rc<&dyn Visitor<ExpressionRes>>) -> ExpressionRes {
-        visitor.execute_for_assignment(self)
-    }
-}
-
-impl Debug for Assignment {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Assignment")
-            .field("identifier", &self.identifier)
-            .field("value", &self.value)
-            .finish()
-    }
-}
-
-pub struct Logical {
-    pub token: Token,
-    pub rhs: Box<dyn Expression<ExpressionRes>>,
-    pub lhs: Box<dyn Expression<ExpressionRes>>,
-}
-
-impl Debug for Logical {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("BinaryExpr")
-            .field("token", &self.token)
-            .field("lhs", &self.lhs)
-            .field("rhs", &self.rhs)
-            .finish()
-    }
-}
-
-impl Expression<ExpressionRes> for Logical {
-    fn accept(&self, visitor: Rc<&dyn Visitor<ExpressionRes>>) -> ExpressionRes {
-        visitor.execute_for_logical(self)
-    }
-}
-
-
-pub struct Call {
-    pub identifier: Box<dyn Expression<ExpressionRes>>,
-    pub args: Vec<Box<dyn Expression<ExpressionRes>>>,
-}
-
-impl Debug for Call {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Call")
-            .field("identifier", &self.identifier)
-            .field("args", &self.args)
-            .finish()
-    }
-}
-
-impl Expression<ExpressionRes> for Call {
-    fn accept(&self, visitor: Rc<&dyn Visitor<ExpressionRes>>) -> ExpressionRes {
-        visitor.execute_for_call(self)
-    }
-}
-
 
 #[derive(Debug)]
 pub struct ExpressionRes {

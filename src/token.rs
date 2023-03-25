@@ -55,11 +55,21 @@ pub enum TokenType {
     Space,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq)]
 pub struct Token {
     pub token_type: TokenType,
     pub value: String,
     pub line: usize,
+}
+
+impl Clone for Token {
+    fn clone(&self) -> Self {
+        Token {
+            token_type: self.token_type.clone(),
+            value: self.value.clone(),
+            line: self.line.clone(),
+        }
+    }
 }
 
 impl Token {

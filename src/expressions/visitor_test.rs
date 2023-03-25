@@ -1,9 +1,11 @@
 #![allow(warnings, unused)]
 
 use std::ops::Deref;
+use std::ptr::eq;
 use std::rc::Rc;
 
-use crate::expressions::expression::{BinaryExpr, Expr, Expression, ExpressionRes, LiteralExpr, Logical, UnaryExpr};
+use crate::expressions::expression::{Expression, ExpressionRes};
+use crate::expressions::expression::Expression::{BinaryExpr, Expr, LiteralExpr, Logical, UnaryExpr};
 use crate::expressions::visitor::{ExpressionInterpreter, Visitor};
 use crate::parser::Parser;
 use crate::statements::statement::Statement;
@@ -20,10 +22,8 @@ fn unary_bang() {
         },
         rhs: Box::new(LiteralExpr { token_type: TokenType::False, value: "".to_string() }),
     };
-    let visitor = ExpressionInterpreter::new();
-    let rc = Rc::new(visitor) as Rc<dyn Visitor<ExpressionRes>>;
-    let x1 = rc.as_ref();
-    assert!(expr.accept(Rc::new(x1).into()).boolean);
+    let mut visitor = ExpressionInterpreter::new();
+    assert!(visitor.eval(expr).boolean);
 }
 
 #[test]
@@ -37,12 +37,8 @@ fn string_binary_plus() {
         lhs: Box::new(LiteralExpr { token_type: TokenType::String, value: "hello ".to_string() }),
         rhs: Box::new(LiteralExpr { token_type: TokenType::String, value: "world".to_string() }),
     };
-    let visitor = ExpressionInterpreter::new();
-
-
-    let rc = Rc::new(visitor) as Rc<dyn Visitor<ExpressionRes>>;
-    let x1 = rc.as_ref();
-    assert_eq!(expr.accept(Rc::new(x1)).str, "hello world");
+    let mut visitor = ExpressionInterpreter::new();
+    assert_eq!(visitor.eval(expr).str, "hello world");
 }
 
 
@@ -53,57 +49,51 @@ fn visitor_test() {
         value: "".to_string(),
         line: 0,
     };
-    let equality = BinaryExpr {
+    let equality =  Box::new(BinaryExpr {
         token,
         rhs: Box::new(LiteralExpr {
             token_type: TokenType::Number,
             value: "10".to_string(),
         }),
-        lhs: Box::new(LiteralExpr {
+        lhs:  Box::new(LiteralExpr {
             token_type: TokenType::Number,
             value: "1".to_string(),
         }),
-    };
+    });
     let expr = Expr {
         value: String::from("here"),
-        equality: Some(Box::new(equality)),
+        equality: Some(equality.clone()),
     };
-    let x1 = get_visitor();
-    let res = expr.accept(Rc::new(&*x1));
-    println!("{:?}", res)
+
+    println!("{:?}", get_visitor().eval(*equality))
 }
 
 #[test]
 fn logical_test() {
-    let visitor1 = get_visitor();
-    let visitor = Rc::new(&*visitor1);
-
-    let logical_false = Logical {
+  let logical_false = Box::new(Logical {
         token: Token::new(TokenType::And, "".to_string(), 0),
-        rhs: Box::new(get_false_literal()),
-        lhs: Box::new(get_true_literal()),
-    };
+        rhs: get_false_literal(),
+        lhs: get_true_literal(),
+    });
 
-    let res = logical_false.accept(Rc::clone(&visitor));
-    assert!(!res.boolean);
+    assert!(get_visitor().eval(*logical_false.clone()).boolean);
 
-    let logical_true = Logical {
+    let logical_true = Box::new(Logical {
         token: Token::new(TokenType::And, "".to_string(), 0),
-        rhs: Box::new(get_true_literal()),
-        lhs: Box::new(get_true_literal()),
-    };
+        rhs: get_true_literal(),
+        lhs: get_true_literal()
+    });
 
-    let res = logical_true.accept(Rc::clone(&visitor));
-    println!("{:#?}", res);
-    assert!(res.boolean);
+
+    println!("{:#?}", get_visitor().eval(*logical_true.clone()));
+    assert!(get_visitor().eval(*logical_true.clone()).boolean);
 
     let logical = Logical {
         token: Token::new(TokenType::Or, "".to_string(), 0),
-        rhs: Box::new(logical_false),
-        lhs: Box::new(logical_true),
+        rhs: logical_false,
+        lhs: logical_true,
     };
-    let res = logical.accept(Rc::clone(&visitor));
-    assert!(res.boolean);
+    assert!(get_visitor().eval(logical).boolean);
 }
 
 #[test]
@@ -124,15 +114,14 @@ fn get_statements(statement: String) -> Vec<Box<Statement>> {
 
 
 
-fn get_false_literal() -> LiteralExpr {
-    LiteralExpr { token_type: TokenType::False, value: "".to_string() }
+fn get_false_literal() ->  Box<Expression>{
+    Box::new(LiteralExpr { token_type: TokenType::False, value: "".to_string() })
 }
 
-fn get_visitor() -> Box<dyn Visitor<ExpressionRes>> {
-    let visitor = ExpressionInterpreter::new();
-    Box::new(visitor) as Box<dyn Visitor<ExpressionRes>>
+fn get_visitor() -> ExpressionInterpreter {
+   ExpressionInterpreter::new()
 }
 
-fn get_true_literal() -> LiteralExpr {
-    LiteralExpr { token_type: TokenType::True, value: "".to_string() }
+fn get_true_literal() ->  Box<Expression> {
+    Box::new(LiteralExpr { token_type: TokenType::True, value: "".to_string() })
 }

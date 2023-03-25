@@ -4,11 +4,11 @@ use crate::statements::statement::Statement;
 pub struct Method {
     pub name: String,
     pub args : Vec<ExpressionRes>,
-    pub body: Box<Statement>,
+    pub body: Statement,
 }
 
 impl Method {
-    pub fn new(name: String, args : Vec<ExpressionRes>, body: Box<Statement>) -> Method {
+    pub fn new(name: String, args : Vec<ExpressionRes>, body: Statement) -> Method {
         Method {
             name,
             args,

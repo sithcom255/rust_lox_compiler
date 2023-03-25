@@ -1,6 +1,7 @@
 use std::collections::LinkedList;
 
-use crate::expressions::expression::{Assignment, BinaryExpr, Call, Expr, Expression, ExpressionRes, GroupingExpr, LiteralExpr, Logical, UnaryExpr, VariableExpr};
+use crate::expressions::expression::{Expression, ExpressionRes};
+use crate::expressions::expression::Expression::{Assignment, BinaryExpr, Call, GroupingExpr, LiteralExpr, Logical, UnaryExpr, VariableExpr};
 use crate::statements::statement::Statement;
 use crate::statements::statement::Statement::{BlockStatement, ForStatement, FunStatement, IfStatement, Stmt, WhileStatement};
 use crate::token::{Scanner, Token, TokenType};
@@ -70,35 +71,39 @@ impl Parser {
         }
     }
 
-    pub fn if_statement(&mut self) -> Option<Box<Statement>> {
+    pub fn if_statement(&mut self) -> Option<Box<Statement>>{
         self.advance();
         self.consume(LeftParen, "Expected a brace before condition".to_string());
-        let expr = self.expression().unwrap();
+        let expr = *self.expression().unwrap();
         self.consume(RightParen, "Expected a brace after condition".to_string());
         let body = self.block().unwrap();
         if self.peek_next(Else) {
             self.advance();
             if self.peek_next(LeftBrace) {
-                let else_body = self.block();
-                return Some(Box::new(IfStatement { expr, body, else_body }));
+                match self.block() {
+                    None => { panic!(r" blcok after {{ in if statement");}
+                    Some(value) => {
+                        IfStatement { expr, body, else_body: Some(value) }
+                    }
+                };
             }
             panic!(r"missing {{ after else ");
         }
-        Some(Box::new(IfStatement { expr, body, else_body: None }))
+        Some(Box::new((IfStatement { expr, body, else_body: None })))
     }
 
     fn function(&mut self) -> Option<Box<Statement>> {
         self.advance();
         let identifier = match self.get_current().token_type {
-            TokenType::Identifier => {  self.get_current().clone() }
+            TokenType::Identifier => { self.get_current().clone() }
             _ => { panic!("no identifier after fn declaration found: {:#?}", self.get_current()) }
         };
         self.advance();
 
         self.consume(LeftParen, "please define function (".to_string());
-        let mut args = Vec::<Box<dyn Expression<ExpressionRes>>>::new();
+        let mut args = Vec::<Expression>::new();
         while !self.peek_next(RightParen) {
-            args.push(self.expression().unwrap());
+            args.push(*self.expression().unwrap());
             if self.peek_next(TokenType::Comma) {
                 self.advance();
                 if self.peek_next(RightParen) {
@@ -107,15 +112,20 @@ impl Parser {
             }
         }
         self.consume(RightParen, "please define function with )".to_string());
-        let option = self.block();
-        Some(Box::new(FunStatement {
-            identifier,
-            args,
-            block: option,
-        }))
+        match self.block() {
+            None => { panic!("there should be block after function )")}
+            Some(value ) => {
+                Some(Box::new(FunStatement {
+                    identifier,
+                    args,
+                    block: Some(value),
+                }))
+            }
+        }
+
     }
 
-    fn while_block(&mut self) -> Option<Box<Statement>> {
+    fn while_block(&mut self) -> Option<Box<Statement>>{
         self.advance();
         self.consume(LeftParen, "Expected a brace before condition".to_string());
         let expr = self.expression().unwrap();
@@ -124,7 +134,7 @@ impl Parser {
         Some(Box::new(WhileStatement { expr, body: statements }))
     }
 
-    fn for_loop(&mut self) -> Option<Box<Statement>> {
+    fn for_loop(&mut self) -> Option<Box<Statement>>{
         self.advance();
         self.consume(LeftParen, "Expected a brace before condition".to_string());
         let initiation = match self.get_current().token_type {
@@ -210,7 +220,7 @@ impl Parser {
         }
     }
 
-    pub fn expression(&mut self) -> Option<Box<dyn Expression<ExpressionRes>>> {
+    pub fn expression(&mut self) -> Option<Box<Expression>> {
         match self.assignment() {
             Some(value) => {
                 Some(value)
@@ -219,7 +229,7 @@ impl Parser {
         }
     }
 
-    pub fn assignment(&mut self) -> Option<Box<dyn Expression<ExpressionRes>>> {
+    pub fn assignment(&mut self) -> Option<Box<Expression>> {
         let lhs = match self.logic_or() {
             None => { return None; }
             Some(value) => {
@@ -249,7 +259,7 @@ impl Parser {
         None
     }
 
-    pub fn logic_or(&mut self) -> Option<Box<dyn Expression<ExpressionRes>>> {
+    pub fn logic_or(&mut self) -> Option<Box<Expression>> {
         let mut lhs = self.logic_and();
         if self.peek_next(Or) && lhs.is_some() {
             let token = self.get_current().clone();
@@ -268,7 +278,7 @@ impl Parser {
         lhs
     }
 
-    pub fn logic_and(&mut self) -> Option<Box<dyn Expression<ExpressionRes>>> {
+    pub fn logic_and(&mut self) -> Option<Box<Expression>> {
         let mut lhs = self.equality();
         if self.peek_next(And) && lhs.is_some() {
             let token = self.get_current().clone();
@@ -287,7 +297,7 @@ impl Parser {
         lhs
     }
 
-    pub fn equality(&mut self) -> Option<Box<dyn Expression<ExpressionRes>>> {
+    pub fn equality(&mut self) -> Option<Box<Expression>> {
         let mut lhs = match self.comparison() {
             None => { return None; }
             Some(value) => { value }
@@ -307,7 +317,7 @@ impl Parser {
         Some(lhs)
     }
 
-    fn comparison(&mut self) -> Option<Box<dyn Expression<ExpressionRes>>> {
+    fn comparison(&mut self) -> Option<Box<Expression>> {
         let mut lhs = match self.term() {
             None => { return None; }
             Some(value) => { value }
@@ -328,7 +338,7 @@ impl Parser {
         Some(lhs)
     }
 
-    fn term(&mut self) -> Option<Box<dyn Expression<ExpressionRes>>> {
+    fn term(&mut self) -> Option<Box<Expression>> {
         let mut lhs = match self.factor() {
             None => { return None; }
             Some(value) => { value }
@@ -347,7 +357,7 @@ impl Parser {
         Some(lhs)
     }
 
-    fn factor(&mut self) -> Option<Box<dyn Expression<ExpressionRes>>> {
+    fn factor(&mut self) -> Option<Box<Expression>> {
         let mut lhs = match self.unary() {
             None => { return None; }
             Some(value) => { value }
@@ -367,7 +377,7 @@ impl Parser {
         Some(lhs)
     }
 
-    fn unary(&mut self) -> Option<Box<dyn Expression<ExpressionRes>>> {
+    fn unary(&mut self) -> Option<Box<Expression>> {
         while self.current < self.size && match self.tokens[self.current].token_type {
             TokenType::Bang |
             TokenType::Minus => true,
@@ -381,9 +391,9 @@ impl Parser {
         return self.call();
     }
 
-    fn call(&mut self) -> Option<Box<dyn Expression<ExpressionRes>>> {
+    fn call(&mut self) -> Option<Box<Expression>> {
         let token = self.primary();
-        let mut args: Vec<Box<dyn Expression<ExpressionRes>>> = vec![];
+        let mut args: Vec<Box<Expression>> = vec![];
         if self.peek_next(LeftParen) {
             self.advance();
 
@@ -418,20 +428,20 @@ impl Parser {
     }
 
 
-    fn primary(&mut self) -> Option<Box<dyn Expression<ExpressionRes>>> {
-        let primary: Box<dyn Expression<ExpressionRes>> = match self.tokens[self.current].token_type {
+    fn primary(&mut self) -> Option<Box<Expression>> {
+        let primary: Expression = match self.tokens[self.current].token_type {
             TokenType::False |
             TokenType::True |
             TokenType::Nil => {
                 let token = self.tokens[self.current].clone();
                 self.advance();
-                Box::new(LiteralExpr { token_type: token.token_type, value: token.value })
+                LiteralExpr { token_type: token.token_type, value: token.value }
             }
             TokenType::String |
             TokenType::Number => {
                 let token = self.tokens[self.current].clone();
                 self.advance();
-                Box::new(LiteralExpr { token_type: token.token_type, value: token.value })
+                LiteralExpr { token_type: token.token_type, value: token.value }
             }
             TokenType::LeftParen => {
                 self.advance();
@@ -440,18 +450,18 @@ impl Parser {
                     println!("Error, missing right brace {:?}", self.tokens[self.current])
                 }
                 self.advance();
-                Box::new(GroupingExpr { value: expression })
+                GroupingExpr { value: expression }
             }
             TokenType::Identifier => {
                 let token = self.get_current().clone();
                 self.advance();
-                Box::new(VariableExpr { token_type: token.token_type, value: token.value })
+                VariableExpr { token_type: token.token_type, value: token.value }
             }
             _ => {
                 return None;
             }
         };
-        Some(primary)
+        Some(Box::new(primary))
     }
 
     fn get_current(&self) -> &Token {

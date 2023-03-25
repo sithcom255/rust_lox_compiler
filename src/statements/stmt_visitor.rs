@@ -24,10 +24,10 @@ impl StmtVisitor for StatementInterpreter {
     fn eval(&mut self, object: &Statement) {
         match object {
             Statement::Stmt { expr } => {
-                expr.accept(Rc::new(self.expression_visitor.as_ref()));
+                self.expression_visitor.eval((**expr).clone());
             }
             Statement::IfStatement { expr, body, else_body } => {
-                let res = expr.accept(Rc::new(self.expression_visitor.as_ref()));
+                let res = self.expression_visitor.eval((*expr).clone());
                 if res.type_ != Boolean {
                     panic!("if (.expr.) not evaluatable to bool")
                 }
@@ -43,9 +43,9 @@ impl StmtVisitor for StatementInterpreter {
             Statement::FunStatement { identifier, args, block } => {
                 let mut arguments = vec![];
                 for arg in args {
-                    arguments.push(arg.accept(Rc::new(self.expression_visitor.as_ref())));
+                    arguments.push( self.expression_visitor.eval((*arg).clone()));
                 }
-                let body1 = self.statements.remove()
+                let body1 = (**block.as_ref().unwrap()).clone();
                 let method = ExpressionRes::from_method(Method::new(identifier.value.clone(),
                                                                     arguments,
                                                                     body1));
@@ -54,12 +54,12 @@ impl StmtVisitor for StatementInterpreter {
                                                                   method);
             }
             Statement::WhileStatement { expr, body: statements } => {
-                let condition = expr.clone().deref();
-                let mut res1 = condition.accept(Rc::new(self.expression_visitor.as_ref()));
+                let condition = expr.clone();
+                let mut res1 =  self.expression_visitor.eval((*condition).clone());
 
                 while res1.boolean {
                     self.eval(statements);
-                    res1 = condition.accept(Rc::new(self.expression_visitor.as_ref()))
+                    res1 = self.expression_visitor.eval((*condition).clone());
                 }
             }
             Statement::ForStatement { initiation, condition, increment, body } => {
@@ -73,10 +73,10 @@ impl StmtVisitor for StatementInterpreter {
                 match condition {
                     None => { res1 = ExpressionRes::from_bool(false) }
                     Some(value) => {
-                        let statement = value.clone().deref();
-                        match statement {
+                        let statement = value.clone();
+                        match *statement {
                             Statement::Stmt { expr } => {
-                                res1 = expr.accept(Rc::new(self.expression_visitor.as_ref()));
+                                res1 = self.expression_visitor.eval(*expr);
                             }
                             _ => {}
                         }
@@ -92,10 +92,10 @@ impl StmtVisitor for StatementInterpreter {
                     match condition {
                         None => { res1 = ExpressionRes::from_bool(false) }
                         Some(value) => {
-                            let statement = value.clone().deref();
-                            match statement {
+                            let statement = value.clone();
+                            match *statement {
                                 Statement::Stmt { expr } => {
-                                    res1 = expr.accept(Rc::new(self.expression_visitor.as_ref()));
+                                    res1 =  self.expression_visitor.eval(*expr);
                                 }
                                 _ => {}
                             }
@@ -104,7 +104,8 @@ impl StmtVisitor for StatementInterpreter {
                 }
             }
             Statement::PrintStatement { expr } => {
-                let res = expr.accept(Rc::new(self.expression_visitor.as_ref()));
+                let x1 = (*expr).clone();
+                let res =  self.expression_visitor.eval(*x1);
 
                 if res.type_ == Identifier {
                     let x = self.lookup_variable(res.str);
@@ -127,8 +128,9 @@ impl StmtVisitor for StatementInterpreter {
                 envs_after.pop();
             }
             Statement::VarDeclaration { identifier, expr } => {
-                let identifier_res = identifier.as_ref().accept(Rc::new(self.expression_visitor.as_ref()));
-                let content = expr.as_ref().unwrap().accept(Rc::new(self.expression_visitor.as_ref()));
+                let identifier_res =  self.expression_visitor.eval(*(*identifier).clone());
+                let expression = *((*expr).clone().unwrap()).clone();
+                let content =  self.expression_visitor.eval(expression);
                 if content.type_ == Identifier {
                     let mut ref_mut = self.envs.try_borrow_mut().unwrap();
                     let envs = ref_mut.deref_mut();
@@ -164,8 +166,8 @@ impl StatementInterpreter {
     }
 
     pub fn interpret(&mut self, program: Vec<Box<Statement>>) {
-        self.statements = program;
-        for statement in self.statements {
+        // self.statements = program;
+        for statement in program {
             self.eval(&*statement)
         }
     }

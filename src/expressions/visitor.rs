@@ -3,23 +3,13 @@ use std::fmt::{Debug, Formatter};
 use std::ops::Deref;
 use std::rc::Rc;
 
-use crate::expressions::expression::{Assignment, BinaryExpr, Call, Comparison, Equality, Expr, ExpressionRes, ExprResType, GroupingExpr, LiteralExpr, Logical, UnaryExpr, VariableExpr};
+use crate::expressions::expression::{Expression, ExpressionRes, ExprResType};
 use crate::expressions::expression::ExprResType::{Function, Identifier, Nil};
 use crate::program::program::ProgramEnvs;
 use crate::token::TokenType;
 
 pub trait Visitor<T> {
-    fn execute_for_expr(&self, object: &Expr) -> T;
-    fn execute_for_equality(&self, object: &Equality) -> T;
-    fn execute_for_comparison(&self, object: &Comparison) -> T;
-    fn execute_for_grouping(&self, object: &GroupingExpr) -> T;
-    fn execute_for_binary(&self, object: &BinaryExpr) -> T;
-    fn execute_for_unary(&self, object: &UnaryExpr) -> T;
-    fn execute_for_literal(&self, object: &LiteralExpr) -> T;
-    fn execute_for_variable(&self, object: &VariableExpr) -> T;
-    fn execute_for_assignment(&self, object: &Assignment) -> T;
-    fn execute_for_logical(&self, object: &Logical) -> T;
-    fn execute_for_call(&self, object: &Call) -> T;
+    fn eval(&self, expression: Expression) -> T;
 }
 
 #[derive(Clone)]
@@ -48,172 +38,169 @@ impl ExpressionInterpreter {
 }
 
 impl Visitor<ExpressionRes> for ExpressionInterpreter {
-    fn execute_for_expr(&self, object: &Expr) -> ExpressionRes {
-        let expression = object.equality.as_ref().unwrap();
-        expression.accept(Rc::new(self))
-    }
-
-
-    fn execute_for_equality(&self, object: &Equality) -> ExpressionRes {
-        println!("Hello-world Equality {:?}", object.value);
-        ExpressionRes::from_str(String::from(""))
-    }
-
-    fn execute_for_comparison(&self, object: &Comparison) -> ExpressionRes {
-        println!("Hello-world Comparison {:?}", object.value);
-        ExpressionRes::from_str(String::from(""))
-    }
-
-    fn execute_for_grouping(&self, object: &GroupingExpr) -> ExpressionRes {
-        let expression = object.value.as_ref();
-        expression.accept(Rc::new(self))
-    }
-
-    fn execute_for_binary(&self, object: &BinaryExpr) -> ExpressionRes {
-        let mut rhs_res = Rc::new(object.rhs.as_ref().accept(Rc::new(self)));
-        let mut lhs_res = Rc::new(object.lhs.as_ref().accept(Rc::new(self)));
-
-        if rhs_res.type_ == Identifier {
-            let rc = self.envs.borrow().lookup_var(rhs_res.str.to_string());
-            rhs_res = Rc::new(ExpressionRes::copy(rc.borrow().deref()));
-        }
-
-        if lhs_res.type_ == Identifier {
-            let rc = self.envs.borrow().lookup_var(rhs_res.str.to_string());
-            rhs_res = Rc::new(ExpressionRes::copy(rc.borrow().deref()));
-        }
-
-
-        if lhs_res.type_ == ExprResType::Number && lhs_res.eq_type(&rhs_res) {
-            match object.token.token_type {
-                TokenType::Greater => ExpressionRes::from_bool(
-                    lhs_res.number > rhs_res.number),
-                TokenType::GreaterEqual => ExpressionRes::from_bool(
-                    lhs_res.number >= rhs_res.number),
-                TokenType::Less => ExpressionRes::from_bool(
-                    lhs_res.number < rhs_res.number),
-                TokenType::LessEqual => ExpressionRes::from_bool(
-                    lhs_res.number <= rhs_res.number),
-                TokenType::EqualEqual => ExpressionRes::from_bool(
-                    lhs_res.number == rhs_res.number),
-                TokenType::Minus => ExpressionRes::from_number(
-                    lhs_res.number - rhs_res.number),
-                TokenType::Slash => ExpressionRes::from_number(
-                    lhs_res.number / rhs_res.number),
-                TokenType::Star => ExpressionRes::from_number(
-                    lhs_res.number * rhs_res.number),
-                TokenType::Plus => ExpressionRes::from_number(
-                    lhs_res.number + rhs_res.number),
-                TokenType::Percent => ExpressionRes::from_number(
-                    (lhs_res.number).rem_euclid(rhs_res.number)
-                ),
-                _ => ExpressionRes::from_none()
+    fn eval(& self, expression: Expression) -> ExpressionRes {
+        match expression {
+            Expression::Expr { value, equality } => {
+                match equality {
+                    None => { ExpressionRes::from_none() }
+                    Some(value) => {
+                        self.eval(*value)
+                    }
+                }
             }
-        } else if lhs_res.type_ == ExprResType::String && lhs_res.eq_type(&rhs_res) {
-            match object.token.token_type {
-                TokenType::Plus => ExpressionRes::from_str(
-                    lhs_res.str.to_string() + &*rhs_res.str),
-                _ => ExpressionRes::from_none(),
+            Expression::Equality { token, value } => {
+                println!("Hello-world Equality {:?}", &value);
+                ExpressionRes::from_str(String::from(""))
             }
-        } else {
-            println!("There has been an error in a binary operation");
-            ExpressionRes::from_none()
-        }
-    }
-
-    fn execute_for_unary(&self, object: &UnaryExpr) -> ExpressionRes {
-        let rhs = object.rhs.as_ref();
-        let rhs_res = rhs.accept(Rc::new(self));
-
-        match (rhs_res.type_, object.token.token_type) {
-            (ExprResType::Number, TokenType::Minus) => ExpressionRes::from_number(-(rhs_res.number)),
-            (ExprResType::Boolean, TokenType::Bang) => ExpressionRes::from_bool(!(rhs_res.boolean)),
-            _ => ExpressionRes::from_none()
-        }
-    }
-
-    fn execute_for_literal(&self, object: &LiteralExpr) -> ExpressionRes {
-        let token_type = object.token_type.clone();
-        let string = object.value.clone();
-        match token_type {
-            TokenType::String => ExpressionRes::from_str(string),
-            TokenType::Number => ExpressionRes::from_number(str::parse::<isize>(&string).unwrap()),
-            TokenType::False => ExpressionRes::from_bool(false),
-            TokenType::True => ExpressionRes::from_bool(true),
-            _ => ExpressionRes::from_none()
-        }
-    }
-
-    fn execute_for_variable(&self, object: &VariableExpr) -> ExpressionRes {
-        match object.token_type {
-            TokenType::Nil => ExpressionRes::from_variable(String::from("nil")),
-            _ => ExpressionRes::from_variable(object.value.clone())
-        }
-    }
-
-    fn execute_for_assignment(&self, object: &Assignment) -> ExpressionRes {
-        let x = object.identifier.as_ref().accept(Rc::new(self));
-        let value = object.value.as_ref().accept(Rc::new(self));
-        match value.type_ {
-            Identifier => {
-                let rc = self.envs.borrow().lookup_var(value.str.clone());
-                rc.replace(ExpressionRes::copy(&value));
-                return ExpressionRes::copy(&value);
+            Expression::Comparison { token_type, value } => {
+                println!("Hello-world Equality {:?}", &value);
+                ExpressionRes::from_str(String::from(""))
             }
-            Function => {
-                value
+            Expression::GroupingExpr { value } => {
+                self.eval(*value)
             }
-            Nil => {
-                self.envs.borrow().remove_var(x.str);
+            Expression::BinaryExpr { token, rhs, lhs } => {
+                let mut rhs_res = self.eval(*rhs);
+                let mut lhs_res = self.eval(*lhs);
+
+                if rhs_res.type_ == Identifier {
+                    let rc = self.envs.borrow().lookup_var(rhs_res.str.to_string());
+                    rhs_res = ExpressionRes::copy(rc.borrow().deref());
+                }
+
+                if lhs_res.type_ == Identifier {
+                    let rc = self.envs.borrow().lookup_var(rhs_res.str.to_string());
+                    rhs_res = ExpressionRes::copy(rc.borrow().deref());
+                }
+
+
+                if lhs_res.type_ == ExprResType::Number && lhs_res.eq_type(&rhs_res) {
+                    match token.token_type {
+                        TokenType::Greater => ExpressionRes::from_bool(
+                            lhs_res.number > rhs_res.number),
+                        TokenType::GreaterEqual => ExpressionRes::from_bool(
+                            lhs_res.number >= rhs_res.number),
+                        TokenType::Less => ExpressionRes::from_bool(
+                            lhs_res.number < rhs_res.number),
+                        TokenType::LessEqual => ExpressionRes::from_bool(
+                            lhs_res.number <= rhs_res.number),
+                        TokenType::EqualEqual => ExpressionRes::from_bool(
+                            lhs_res.number == rhs_res.number),
+                        TokenType::Minus => ExpressionRes::from_number(
+                            lhs_res.number - rhs_res.number),
+                        TokenType::Slash => ExpressionRes::from_number(
+                            lhs_res.number / rhs_res.number),
+                        TokenType::Star => ExpressionRes::from_number(
+                            lhs_res.number * rhs_res.number),
+                        TokenType::Plus => ExpressionRes::from_number(
+                            lhs_res.number + rhs_res.number),
+                        TokenType::Percent => ExpressionRes::from_number(
+                            (lhs_res.number).rem_euclid(rhs_res.number)
+                        ),
+                        _ => ExpressionRes::from_none()
+                    }
+                } else if lhs_res.type_ == ExprResType::String && lhs_res.eq_type(&rhs_res) {
+                    match token.token_type {
+                        TokenType::Plus => ExpressionRes::from_str(
+                            lhs_res.str.to_string() + &*rhs_res.str),
+                        _ => ExpressionRes::from_none(),
+                    }
+                } else {
+                    println!("There has been an error in a binary operation");
+                    ExpressionRes::from_none()
+                }
+            }
+            Expression::UnaryExpr { token, rhs } => {
+                let rhs_res = self.eval(*rhs);
+                match (rhs_res.type_, token.token_type) {
+                    (ExprResType::Number, TokenType::Minus) => ExpressionRes::from_number(-(rhs_res.number)),
+                    (ExprResType::Boolean, TokenType::Bang) => ExpressionRes::from_bool(!(rhs_res.boolean)),
+                    _ => ExpressionRes::from_none()
+                }
+            }
+            Expression::LiteralExpr { token_type, value } => {
+                match token_type {
+                    TokenType::String => ExpressionRes::from_str(value.clone()),
+                    TokenType::Number => ExpressionRes::from_number(str::parse::<isize>(&value).unwrap()),
+                    TokenType::False => ExpressionRes::from_bool(false),
+                    TokenType::True => ExpressionRes::from_bool(true),
+                    _ => ExpressionRes::from_none()
+                }
+            }
+            Expression::VariableExpr { token_type, value } => {
+                match token_type {
+                    TokenType::Nil => ExpressionRes::from_variable(String::from("nil")),
+                    _ => ExpressionRes::from_variable(value.clone())
+                }
+            }
+            Expression::Assignment { identifier, value } => {
+                let assignee = self.eval(*identifier);
+                let value = self.eval(*value);
+                match value.type_ {
+                    Identifier => {
+                        let rc = self.envs.borrow().lookup_var(value.str.clone());
+                        rc.replace(ExpressionRes::copy(&value));
+                        return ExpressionRes::copy(&value);
+                    }
+                    Function => {
+                        value
+                    }
+                    Nil => {
+                        self.envs.borrow().remove_var(assignee.str);
+                        ExpressionRes::from_none()
+                    }
+                    _ => {
+                        let res = ExpressionRes::copy(&value);
+                        self.envs.borrow().assign_to_existing(assignee.str.to_string(), value);
+                        res
+                    }
+                }
+            }
+            Expression::Logical { token, rhs, lhs } => {
+                let mut rhs_res = self.eval(*rhs);
+                let mut lhs_res = self.eval(*lhs);
+
+                if rhs_res.type_ == Identifier {
+                    let rc = self.envs.borrow().lookup_var(rhs_res.str.to_string());
+                    rhs_res = ExpressionRes::copy(rc.borrow().deref());
+                }
+
+                if lhs_res.type_ == Identifier {
+                    let rc1 = self.envs.borrow().lookup_var(lhs_res.str.to_string());
+                    lhs_res = ExpressionRes::copy(rc1.borrow().deref());
+                }
+
+                if lhs_res.type_ == ExprResType::Boolean && lhs_res.eq_type(&rhs_res) {
+                    match token.token_type {
+                        TokenType::And => {
+                            ExpressionRes::from_bool(lhs_res.boolean && rhs_res.boolean)
+                        }
+                        TokenType::Or => {
+                            ExpressionRes::from_bool(lhs_res.boolean || rhs_res.boolean)
+                        }
+                        _ => {
+                            panic!("cannot evaluate logical expression for {:#?} {:#?}", &lhs_res, &rhs_res)
+                        }
+                    }
+                } else {
+                    panic!("cannot evaluate logical expression for {:#?} {:#?}", &lhs_res, &rhs_res)
+                }
+            }
+            Expression::Call { identifier, args } => {
+                let method_name = self.eval(*identifier);
+                let mut arguments = vec![];
+                for arg in args {
+                    let mut res = self.eval(*arg);
+                    if res.type_ == ExprResType::Identifier {
+                        let rc2 = self.envs.borrow_mut().lookup_var(method_name.str.clone());
+                        let res = ExpressionRes::copy(rc2.borrow_mut().deref());
+                    }
+                    arguments.push(res)
+                }
+                let method = self.envs.borrow_mut().lookup_var(method_name.str.clone());
+                // omg
                 ExpressionRes::from_none()
             }
-            _ => {
-                let res = ExpressionRes::copy(&value);
-                self.envs.borrow().assign_to_existing(x.str.to_string(), value);
-                res
-            }
         }
-    }
-    fn execute_for_logical(&self, object: &Logical) -> ExpressionRes {
-        let mut rhs_res = Rc::new(object.rhs.as_ref().accept(Rc::new(self)));
-        let mut lhs_res = Rc::new(object.lhs.as_ref().accept(Rc::new(self)));
-
-        if rhs_res.type_ == Identifier {
-            let rc = self.envs.borrow().lookup_var(rhs_res.str.to_string());
-            rhs_res = Rc::new(ExpressionRes::copy(rc.borrow().deref()));
-        }
-
-        if lhs_res.type_ == Identifier {
-            let rc1 = self.envs.borrow().lookup_var(lhs_res.str.to_string());
-            lhs_res = Rc::new(ExpressionRes::copy(rc1.borrow().deref()));
-        }
-
-        if lhs_res.type_ == ExprResType::Boolean && lhs_res.eq_type(&rhs_res) {
-            if object.token.token_type == TokenType::And {
-                ExpressionRes::from_bool(lhs_res.boolean && rhs_res.boolean)
-            } else if object.token.token_type == TokenType::Or {
-                ExpressionRes::from_bool(lhs_res.boolean || rhs_res.boolean)
-            } else {
-                panic!("cannot evaluate logical expression for {:#?} {:#?}", &lhs_res, &rhs_res)
-            }
-        } else {
-            panic!("cannot evaluate logical expression for {:#?} {:#?}", &lhs_res, &rhs_res)
-        }
-    }
-
-    fn execute_for_call(&self, object: &Call) -> ExpressionRes {
-        let identifier = object.identifier.accept(Rc::new(self));
-        let mut arguments = vec![];
-        for arg in &object.args {
-            let mut res = arg.accept(Rc::new(self));
-            if (res.type_ == ExprResType::Identifier ) {
-
-            }
-            arguments.push(res)
-        }
-        let method = self.envs.borrow_mut().lookup_var(identifier.str.clone());
-
-
-        ExpressionRes::from_none()
     }
 }

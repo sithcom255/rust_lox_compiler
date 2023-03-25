@@ -4,23 +4,23 @@ use std::fmt::Debug;
 use crate::expressions::expression::{Expression, ExpressionRes};
 use crate::token::Token;
 
-#[derive(Debug)]
+#[derive(Debug,  Clone)]
 pub enum Statement {
     Stmt {
-         expr: Box<dyn Expression<ExpressionRes>>,
+         expr: Box<Expression>,
     },
     IfStatement {
-        expr: Box<dyn Expression<ExpressionRes>>,
+        expr: Expression,
         body: Box<Statement>,
         else_body: Option<Box<Statement>>,
     },
     FunStatement {
         identifier: Token,
-        args: Vec<Box<dyn Expression<ExpressionRes>>>,
+        args: Vec<Expression>,
         block: Option<Box<Statement>>,
     },
     WhileStatement {
-        expr: Box<dyn Expression<ExpressionRes>>,
+        expr: Box<Expression>,
         body: Box<Statement>,
     },
     ForStatement {
@@ -30,13 +30,13 @@ pub enum Statement {
         body: Box<Statement>
     },
     PrintStatement {
-        expr: Box<dyn Expression<ExpressionRes>>,
+        expr: Box<Expression>,
     },
     BlockStatement {
         statements: LinkedList<Box<Statement>>,
     },
     VarDeclaration {
-        identifier: Box<dyn Expression<ExpressionRes>>,
-        expr: Option<Box<dyn Expression<ExpressionRes>>>,
+        identifier: Box<Expression>,
+        expr: Option<Box<Expression>>,
     },
 }
