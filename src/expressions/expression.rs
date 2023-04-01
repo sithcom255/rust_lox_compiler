@@ -62,7 +62,7 @@ pub struct ExpressionRes {
     pub str: String,
     pub number: isize,
     pub boolean: bool,
-    pub method: Option<Method>,
+    pub method: Option<Rc<Method>>,
 }
 
 impl ExpressionRes {
@@ -134,7 +134,7 @@ impl ExpressionRes {
             str: "fun".to_string().add(&method.name.clone()),
             number: 0,
             boolean: false,
-            method: Some(method),
+            method: Some(Rc::new(method)),
         }
     }
 
@@ -146,6 +146,19 @@ impl ExpressionRes {
             boolean: false,
             method: None,
         }
+    }
+
+    pub fn get_params(&self) -> Vec<String> {
+        let mut args = vec![];
+
+        for arg in &self.method.as_ref().unwrap().args {
+            args.push(arg.str.clone())
+        }
+        args
+    }
+
+    pub fn get_method(&self) -> &Rc<Method> {
+        self.method.as_ref().clone().unwrap()
     }
 
     pub fn eq_type(&self, other: &ExpressionRes) -> bool {

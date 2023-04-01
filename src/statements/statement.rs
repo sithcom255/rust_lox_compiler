@@ -39,4 +39,7 @@ pub enum Statement {
         identifier: Box<Expression>,
         expr: Option<Box<Expression>>,
     },
+    ReturnStatement {
+        expr: Option<Box<Expression>>,
+    },
 }

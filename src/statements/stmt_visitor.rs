@@ -50,6 +50,7 @@ impl StmtVisitor for StatementInterpreter {
                                                                     arguments,
                                                                     body1));
 
+                // figure out the what variables does the method contain
                 self.envs.try_borrow_mut().unwrap().define_at_top(identifier.value.clone(),
                                                                   method);
             }
@@ -121,6 +122,10 @@ impl StmtVisitor for StatementInterpreter {
                     envs.push();
                 }
                 for statement in statements {
+                    if matches!(**statement, Statement::ReturnStatement{..} ) {
+                        self.eval(object);
+                        return;
+                    }
                     self.eval(statement);
                 }
                 let mut ref_mut_post = self.envs.try_borrow_mut().unwrap();
@@ -142,6 +147,10 @@ impl StmtVisitor for StatementInterpreter {
                     envs.define_at_top(identifier_res.str, ExpressionRes::copy(&content))
                 };
             }
+            Statement::ReturnStatement { expr } => {
+                let option = (*expr).clone().unwrap();
+                let res2 = self.expression_visitor.eval(*option);
+            }
         }
     }
 }
@@ -161,6 +170,13 @@ impl StatementInterpreter {
         StatementInterpreter {
             expression_visitor: Rc::new(expression_visitor),
             envs: Rc::new(RefCell::new(ProgramEnvs::new())),
+            statements: vec![],
+        }
+    }
+    pub fn new_with_envs(envs: Rc<RefCell<ProgramEnvs>>) -> StatementInterpreter {
+        StatementInterpreter {
+            expression_visitor:  Rc::new(ExpressionInterpreter::new_with_envs(envs.clone())),
+            envs,
             statements: vec![],
         }
     }

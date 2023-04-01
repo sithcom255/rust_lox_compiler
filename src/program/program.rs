@@ -25,6 +25,12 @@ impl ProgramEnvs {
         }
     }
 
+    pub fn new_with_env(env: Rc<RefCell<Environment>>) -> ProgramEnvs {
+        ProgramEnvs {
+            envs: vec![env],
+        }
+    }
+
     pub fn push(&mut self) {
         self.envs.push(Rc::from(RefCell::new(Environment::new())));
     }

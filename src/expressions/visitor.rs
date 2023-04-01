@@ -2,10 +2,12 @@ use std::cell::RefCell;
 use std::fmt::{Debug, Formatter};
 use std::ops::Deref;
 use std::rc::Rc;
+use crate::env::environment::Environment;
 
 use crate::expressions::expression::{Expression, ExpressionRes, ExprResType};
 use crate::expressions::expression::ExprResType::{Function, Identifier, Nil};
 use crate::program::program::ProgramEnvs;
+use crate::statements::stmt_visitor::StatementInterpreter;
 use crate::token::TokenType;
 
 pub trait Visitor<T> {
@@ -69,10 +71,9 @@ impl Visitor<ExpressionRes> for ExpressionInterpreter {
                 }
 
                 if lhs_res.type_ == Identifier {
-                    let rc = self.envs.borrow().lookup_var(rhs_res.str.to_string());
-                    rhs_res = ExpressionRes::copy(rc.borrow().deref());
+                    let rc = self.envs.borrow().lookup_var(lhs_res.str.to_string());
+                    lhs_res = ExpressionRes::copy(rc.borrow().deref());
                 }
-
 
                 if lhs_res.type_ == ExprResType::Number && lhs_res.eq_type(&rhs_res) {
                     match token.token_type {
@@ -103,6 +104,8 @@ impl Visitor<ExpressionRes> for ExpressionInterpreter {
                     match token.token_type {
                         TokenType::Plus => ExpressionRes::from_str(
                             lhs_res.str.to_string() + &*rhs_res.str),
+                        TokenType::EqualEqual => ExpressionRes::from_bool(
+                            lhs_res.str.to_string() == rhs_res.str.to_string()),
                         _ => ExpressionRes::from_none(),
                     }
                 } else {
@@ -188,17 +191,36 @@ impl Visitor<ExpressionRes> for ExpressionInterpreter {
             }
             Expression::Call { identifier, args } => {
                 let method_name = self.eval(*identifier);
-                let mut arguments = vec![];
+                let mut arguments = Environment::new();
+                {
+
+                    let mut ref_mut = self.envs.borrow_mut();
+                    ref_mut.push();
+                }
+                let method = self.envs.borrow().lookup_var(method_name.str.clone());
+
+                let argument_names = method.as_ref().borrow().get_params();
+                if argument_names.len() != args.len() {
+                    println!("{{ wow, so weird, this look like passed args are not same as declared definition }}")
+                }
+                let mut i: usize = 0;
                 for arg in args {
+
                     let mut res = self.eval(*arg);
                     if res.type_ == ExprResType::Identifier {
-                        let rc2 = self.envs.borrow_mut().lookup_var(method_name.str.clone());
-                        let res = ExpressionRes::copy(rc2.borrow_mut().deref());
+                        let rc2 = self.envs.borrow_mut().lookup_var(res.str.clone());
+                        res = ExpressionRes::copy(rc2.borrow_mut().deref());
                     }
-                    arguments.push(res)
+
+                    self.envs.borrow_mut().define_at_top(argument_names[i].clone(), res);
+                    i = i + 1;
                 }
-                let method = self.envs.borrow_mut().lookup_var(method_name.str.clone());
-                // omg
+
+                &method.as_ref().borrow().get_method().call(StatementInterpreter::new_default(),
+                self.envs.clone());
+                self.envs.borrow_mut().pop();
+
+                // om
                 ExpressionRes::from_none()
             }
         }
