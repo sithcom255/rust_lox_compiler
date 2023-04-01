@@ -17,22 +17,39 @@ mod env;
 mod program;
 #[cfg(test)]
 mod parser_tests;
+mod resolver_visitor;
 
+
+fn string_comparison() -> String {
+    "var param = \"ok\"
+
+        if (param == \"ok\") {
+        print \"ok\";
+        }
+
+    EOF;
+    ".to_string()
+
+}
 
 fn test() -> String {
-    "var x  = 1;\
-     print x;\
-     var y = x;\
-     x = 2;
-     x = nil;
-     print y;\
-     print x;\
-     EOF;".to_string()
+    "var param = \"outer\"
+    var paramOut = \"closedOver\"
+    fun hello(param) {
+        if (param == \"ok\") {
+        hello(\"notOK\");
+        }
+    print \" hello this: \" + param + paramOut;
+    }
+    hello(\"ok\");
+    EOF;
+    ".to_string()
+
 }
 
 fn main() {
     let program = get_statement(test());
-    // debug(&program);
+    debug(&program);
     let mut interpreter = StatementInterpreter::new_default();
     interpreter.interpret(program);
 }
