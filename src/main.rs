@@ -1,13 +1,14 @@
 #![allow(warnings, unused)]
 extern crate core;
 
+use log::{LevelFilter, SetLoggerError, trace};
+use simple_logger::SimpleLogger;
 use crate::parser::Parser;
 use crate::statements::statement::Statement;
 use crate::statements::stmt_visitor::StatementInterpreter;
-use crate::token::Scanner;
+use crate::token::{Scanner, Token};
 
 mod expressions;
-mod log;
 mod parser;
 mod token;
 #[cfg(test)]
@@ -20,35 +21,22 @@ mod parser_tests;
 mod resolver_visitor;
 
 
-fn string_comparison() -> String {
-    "var param = \"ok\"
-
-        if (param == \"ok\") {
-        print \"ok\";
-        }
-
-    EOF;
-    ".to_string()
-
-}
-
-fn test() -> String {
-    "var param = \"outer\"
-    var paramOut = \"closedOver\"
-    fun hello(param) {
-        if (param == \"ok\") {
-        hello(\"notOK\");
-        }
-    print \" hello this: \" + param + paramOut;
+fn return_fn() -> String {
+    "fun hello() {
+       return \"Hello world\";
     }
-    hello(\"ok\");
+    print hello();
     EOF;
     ".to_string()
-
+}
+pub fn init() -> Result<(), SetLoggerError> {
+    log::set_boxed_logger(Box::new(SimpleLogger::new()))
+        .map(|()| log::set_max_level(LevelFilter::Error))
 }
 
 fn main() {
-    let program = get_statement(test());
+    init();
+    let program = get_statement(return_fn());
     debug(&program);
     let mut interpreter = StatementInterpreter::new_default();
     interpreter.interpret(program);
@@ -56,13 +44,18 @@ fn main() {
 
 fn debug(p: &Vec<Box<Statement>>) {
     for statement in p {
+        trace!("{:#?}", statement)
+    }
+}
+fn debug_token(p: &Vec<Token>) {
+    for statement in p {
         println!("{:#?}", statement)
     }
 }
 
 fn get_statement(program: String) -> Vec<Box<Statement>> {
     let vec = Scanner::new().tokenize_string(String::from(program));
-
+    // debug_token(&vec);
     let mut parser = Parser::new(vec);
     let program = parser.program();
     program
@@ -160,4 +153,32 @@ fn get_modulo() -> String {
         print \"fizz\";
         }
     EOF;".to_string()
+}
+
+
+fn string_comparison() -> String {
+    "var param = \"ok\"
+
+        if (param == \"ok\") {
+        print \"ok\";
+        }
+
+    EOF;
+    ".to_string()
+
+}
+
+fn easy_function() -> String {
+    "fun hello(param) {
+        var paramOut =\" nono\";
+        if (param == \"ok\") {
+            hello(\"notOK\");
+        }
+        print \" hello this: \" + param + paramOut;
+    }
+
+    var paramOut = \"closedOver\";
+    hello(\"ok\");
+    EOF;
+    ".to_string()
 }

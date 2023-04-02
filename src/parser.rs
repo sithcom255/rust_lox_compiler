@@ -3,7 +3,7 @@ use std::collections::LinkedList;
 use crate::expressions::expression::{Expression, ExpressionRes};
 use crate::expressions::expression::Expression::{Assignment, BinaryExpr, Call, GroupingExpr, LiteralExpr, Logical, UnaryExpr, VariableExpr};
 use crate::statements::statement::Statement;
-use crate::statements::statement::Statement::{BlockStatement, ForStatement, FunStatement, IfStatement, Stmt, WhileStatement};
+use crate::statements::statement::Statement::{BlockStatement, ForStatement, FunStatement, IfStatement, ReturnStatement, Stmt, WhileStatement};
 use crate::token::{Scanner, Token, TokenType};
 use crate::token::TokenType::{And, Comma, Else, Equal, LeftBrace, LeftParen, Or, RightBrace, RightParen, Semicolon};
 
@@ -67,11 +67,12 @@ impl Parser {
             TokenType::While => self.while_block(),
             TokenType::For => self.for_loop(),
             TokenType::LeftBrace => self.block(),
+            TokenType::Return => self.return_stmt(),
             _ => self.expression_statement(),
         }
     }
 
-    pub fn if_statement(&mut self) -> Option<Box<Statement>>{
+    pub fn if_statement(&mut self) -> Option<Box<Statement>> {
         self.advance();
         self.consume(LeftParen, "Expected a brace before condition".to_string());
         let expr = *self.expression().unwrap();
@@ -81,13 +82,14 @@ impl Parser {
             self.advance();
             if self.peek_next(LeftBrace) {
                 match self.block() {
-                    None => { panic!(r" blcok after {{ in if statement");}
+                    None => { panic!(r" blcok after {{ in if statement"); }
                     Some(value) => {
-                        IfStatement { expr, body, else_body: Some(value) }
+                        return Some(Box::new(IfStatement { expr, body, else_body: Some(value) }));
                     }
-                };
+                }
+            } else {
+                panic!(r"missing {{ after else ");
             }
-            panic!(r"missing {{ after else ");
         }
         Some(Box::new((IfStatement { expr, body, else_body: None })))
     }
@@ -113,8 +115,8 @@ impl Parser {
         }
         self.consume(RightParen, "please define function with )".to_string());
         match self.block() {
-            None => { panic!("there should be block after function )")}
-            Some(value ) => {
+            None => { panic!("there should be block after function )") }
+            Some(value) => {
                 Some(Box::new(FunStatement {
                     identifier,
                     args,
@@ -122,10 +124,9 @@ impl Parser {
                 }))
             }
         }
-
     }
 
-    fn while_block(&mut self) -> Option<Box<Statement>>{
+    fn while_block(&mut self) -> Option<Box<Statement>> {
         self.advance();
         self.consume(LeftParen, "Expected a brace before condition".to_string());
         let expr = self.expression().unwrap();
@@ -134,7 +135,7 @@ impl Parser {
         Some(Box::new(WhileStatement { expr, body: statements }))
     }
 
-    fn for_loop(&mut self) -> Option<Box<Statement>>{
+    fn for_loop(&mut self) -> Option<Box<Statement>> {
         self.advance();
         self.consume(LeftParen, "Expected a brace before condition".to_string());
         let initiation = match self.get_current().token_type {
@@ -205,6 +206,22 @@ impl Parser {
         }
 
         Some(Box::new(BlockStatement { statements: list }))
+    }
+
+    pub fn return_stmt(&mut self) -> Option<Box<Statement>> {
+        self.advance();
+
+        if self.get_current().token_type == TokenType::Semicolon {
+            self.advance();
+            return Some(Box::new(ReturnStatement { expr: None }))
+        };
+        let option = self.expression().unwrap();
+        if self.peek_next(Semicolon) {
+            self.advance()
+        } else {
+            panic!("there should be a semicolon at {:#?}", self.get_current())
+        }
+        Some(Box::new(ReturnStatement { expr: Some(option) }))
     }
 
     pub fn expression_statement(&mut self) -> Option<Box<Statement>> {

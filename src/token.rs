@@ -1,6 +1,6 @@
 use std::fs;
+use log::{trace,info, warn, error};
 
-use crate::log::Log;
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum TokenType {
@@ -335,7 +335,7 @@ impl Scanner {
         }
         while self.chars[self.current] != '"' {
             if self.current >= (self.size - 1) {
-                Log::error(self.line, "Missing closing \" in a string");
+                error!("{} {}",self.line, "Missing closing \" in a string");
                 return None;
             }
             self.advance();

@@ -2,12 +2,13 @@ use std::cell::RefCell;
 use std::fmt::{Debug, Formatter};
 use std::ops::Deref;
 use std::rc::Rc;
-use crate::env::environment::Environment;
 
+use crate::env::environment::Environment;
 use crate::expressions::expression::{Expression, ExpressionRes, ExprResType};
 use crate::expressions::expression::ExprResType::{Function, Identifier, Nil};
 use crate::program::program::ProgramEnvs;
-use crate::statements::stmt_visitor::StatementInterpreter;
+use crate::statements::stmt_visitor::{StatementInterpreter, StatementRes};
+use crate::statements::stmt_visitor::StatementRes::{Expr, Void};
 use crate::token::TokenType;
 
 pub trait Visitor<T> {
@@ -40,7 +41,7 @@ impl ExpressionInterpreter {
 }
 
 impl Visitor<ExpressionRes> for ExpressionInterpreter {
-    fn eval(& self, expression: Expression) -> ExpressionRes {
+    fn eval(&self, expression: Expression) -> ExpressionRes {
         match expression {
             Expression::Expr { value, equality } => {
                 match equality {
@@ -132,7 +133,7 @@ impl Visitor<ExpressionRes> for ExpressionInterpreter {
             }
             Expression::VariableExpr { token_type, value } => {
                 match token_type {
-                    TokenType::Nil => ExpressionRes::from_variable(String::from("nil")),
+                    TokenType::Nil => ExpressionRes::from_none(),
                     _ => ExpressionRes::from_variable(value.clone())
                 }
             }
@@ -190,14 +191,14 @@ impl Visitor<ExpressionRes> for ExpressionInterpreter {
                 }
             }
             Expression::Call { identifier, args } => {
-                let method_name = self.eval(*identifier);
-                let mut arguments = Environment::new();
-                {
+                let method = self.envs.borrow().lookup_var(self.eval(*identifier).str.clone());
 
-                    let mut ref_mut = self.envs.borrow_mut();
-                    ref_mut.push();
+                let mut enclosed_environment = None;
+                if let Some(value) = method.borrow().method.clone() {
+                    enclosed_environment = Some(value.env.clone());
                 }
-                let method = self.envs.borrow().lookup_var(method_name.str.clone());
+
+                let mut arguments = Environment::new_with_enclosing(enclosed_environment.unwrap());
 
                 let argument_names = method.as_ref().borrow().get_params();
                 if argument_names.len() != args.len() {
@@ -205,23 +206,31 @@ impl Visitor<ExpressionRes> for ExpressionInterpreter {
                 }
                 let mut i: usize = 0;
                 for arg in args {
-
                     let mut res = self.eval(*arg);
                     if res.type_ == ExprResType::Identifier {
                         let rc2 = self.envs.borrow_mut().lookup_var(res.str.clone());
                         res = ExpressionRes::copy(rc2.borrow_mut().deref());
                     }
 
-                    self.envs.borrow_mut().define_at_top(argument_names[i].clone(), res);
+                    arguments.define_variable(argument_names[i].clone(), res);
                     i = i + 1;
                 }
 
-                &method.as_ref().borrow().get_method().call(StatementInterpreter::new_default(),
-                self.envs.clone());
-                self.envs.borrow_mut().pop();
+                let rc3 = Rc::new(RefCell::new(arguments));
+                let result = method.as_ref()
+                    .borrow()
+                    .get_method()
+                    .call(StatementInterpreter::new_default(),
+                          Rc::new(RefCell::new(
+                              ProgramEnvs::new_with_env(rc3.clone()))));
 
-                // om
-                ExpressionRes::from_none()
+                match result {
+                    Ok(Void {}) => { return ExpressionRes::from_none()}
+                    Ok(Expr { mut res }) => {
+                        return res;
+                    }
+                    Err(val) => { panic!("{}", val)}
+                }
             }
         }
     }

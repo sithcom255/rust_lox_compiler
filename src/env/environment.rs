@@ -8,14 +8,26 @@ use crate::expressions::expression::ExpressionRes;
 #[derive(Debug)]
 pub struct Environment {
     variables: HashMap<String, Rc<RefCell<ExpressionRes>>>,
+    methods: HashMap<String, Rc<RefCell<ExpressionRes>>>,
     classes: HashMap<String, Rc<Class>>,
+    pub enclosing: Option<Rc<RefCell<Environment>>>
 }
 
 impl Environment {
     pub fn new() -> Environment {
         Environment {
             variables: Default::default(),
+            methods: Default::default(),
             classes: Default::default(),
+            enclosing: Default::default(),
+        }
+    }
+    pub fn new_with_enclosing( enclosing: Rc<RefCell<Environment>>) -> Environment {
+        Environment {
+            variables: Default::default(),
+            methods: Default::default(),
+            classes: Default::default(),
+            enclosing: Some(enclosing),
         }
     }
 
@@ -26,7 +38,6 @@ impl Environment {
         let option = self.variables.get(&name).unwrap();
         let mut ref_mut = option.replace(expr);
     }
-
 
     pub fn define_ref(&mut self, name: String, expr: Rc<RefCell<ExpressionRes>>) {
         self.variables.insert(name, expr);
