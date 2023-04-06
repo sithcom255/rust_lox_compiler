@@ -4,10 +4,10 @@ use std::fmt::Debug;
 use crate::expressions::expression::{Expression, ExpressionRes};
 use crate::token::Token;
 
-#[derive(Debug,  Clone)]
+#[derive(Debug, Clone)]
 pub enum Statement {
     Stmt {
-         expr: Box<Expression>,
+        expr: Box<Expression>,
     },
     IfStatement {
         expr: Expression,
@@ -27,7 +27,7 @@ pub enum Statement {
         initiation: Option<Box<Statement>>,
         condition: Option<Box<Statement>>,
         increment: Option<Box<Statement>>,
-        body: Box<Statement>
+        body: Box<Statement>,
     },
     PrintStatement {
         expr: Box<Expression>,
@@ -38,6 +38,10 @@ pub enum Statement {
     VarDeclaration {
         identifier: Box<Expression>,
         expr: Option<Box<Expression>>,
+    },
+    ClassDeclaration {
+        identifier: Token,
+        functions: Vec<Box<Statement>>
     },
     ReturnStatement {
         expr: Option<Box<Expression>>,

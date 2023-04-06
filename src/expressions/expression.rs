@@ -1,9 +1,10 @@
+use std::cell::RefCell;
 use std::fmt::{Debug, Formatter};
 use std::ops::Add;
 use std::rc::Rc;
 
 use crate::expressions::visitor::{ExpressionInterpreter, Visitor};
-use crate::program::runtime::Method;
+use crate::program::runtime::{Class, Instance, Method};
 use crate::token::{Token, TokenType};
 
 #[derive(Debug, Clone)]
@@ -53,16 +54,23 @@ pub enum Expression {
     Call {
        identifier: Box<Expression>,
        args: Vec<Box<Expression>>,
+    },
+    Get {
+        expr: Box<Expression>,
+        name: String,
     }
+
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ExpressionRes {
     pub type_: ExprResType,
     pub str: String,
     pub number: isize,
     pub boolean: bool,
     pub method: Option<Rc<Method>>,
+    pub class: Option<Rc<Class>>,
+    pub instance: Option<Rc<RefCell<Instance>>>,
 }
 
 impl ExpressionRes {
@@ -73,6 +81,8 @@ impl ExpressionRes {
             number: p.number.clone(),
             boolean: p.boolean.clone(),
             method: None,
+            class: None,
+            instance: None,
         }
     }
 }
@@ -84,6 +94,8 @@ pub enum ExprResType {
     Boolean,
     Identifier,
     Function,
+    Class,
+    Instance,
     Nil,
 }
 
@@ -94,7 +106,7 @@ impl ExpressionRes {
             str,
             number: 0,
             boolean: false,
-            method: None,
+            method: None, class: None, instance: None,
         }
     }
 
@@ -104,7 +116,7 @@ impl ExpressionRes {
             str: String::new(),
             number,
             boolean: false,
-            method: None,
+            method: None, class: None,instance: None,
         }
     }
 
@@ -114,7 +126,7 @@ impl ExpressionRes {
             str: String::new(),
             number: 0,
             boolean,
-            method: None,
+            method: None, class: None,instance: None,
         }
     }
 
@@ -124,17 +136,42 @@ impl ExpressionRes {
             str,
             number: 0,
             boolean: false,
-            method: None,
+            method: None, class: None,instance: None,
         }
     }
 
     pub fn from_method(method: Method) -> ExpressionRes {
         ExpressionRes {
             type_: ExprResType::Function,
-            str: "fun".to_string().add(&method.name.clone()),
+            str: method.name.clone(),
             number: 0,
             boolean: false,
             method: Some(Rc::new(method)),
+            class: None,
+            instance: None,
+        }
+    }
+
+    pub fn from_class(class: Class) -> ExpressionRes {
+        ExpressionRes {
+            type_: ExprResType::Class,
+            str: "class ".to_string().add(&class.name.clone()),
+            number: 0,
+            boolean: false,
+            method:  None,
+            class: Some(Rc::new(class)),instance: None,
+        }
+    }
+
+    pub fn from_instance(instance: Instance) -> ExpressionRes {
+        ExpressionRes {
+            type_: ExprResType::Instance,
+            str: "instance of object".to_string(),
+            number: 0,
+            boolean: false,
+            method:  None,
+            class: None,
+            instance: Some(Rc::new(RefCell::new(instance))),
         }
     }
 
@@ -145,12 +182,13 @@ impl ExpressionRes {
             number: 0,
             boolean: false,
             method: None,
+            class: None,
+            instance: None,
         }
     }
 
-    pub fn get_params(&self) -> Vec<String> {
+    pub fn get_params_method(&self) -> Vec<String> {
         let mut args = vec![];
-
         for arg in &self.method.as_ref().unwrap().args {
             args.push(arg.str.clone())
         }
@@ -172,7 +210,9 @@ impl ExpressionRes {
             ExprResType::Boolean => if self.boolean { String::from("true") } else { String::from("false") },
             ExprResType::Nil => String::from("nil"),
             ExprResType::Identifier => self.str.clone(),
-            ExprResType::Function => { self.str.clone() }
+            ExprResType::Function => { "function :".to_string().add(&*self.str) }
+            ExprResType::Class => {"class :" .to_string().add(&*self.str)}
+            ExprResType::Instance => {format!("instance : {:#?}",& self.instance)}
         }
     }
 }

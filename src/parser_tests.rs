@@ -159,6 +159,20 @@ fn call() {
     println!("{:#?}", parser);
 }
 
+#[test]
+fn class_statement() {
+    let statement = "
+    class Hello {
+        okay() {
+            return \"okey\";
+        }
+    }
+    ";
+
+    let vec = Scanner::new().tokenize_string(statement.to_string());
+    let mut parser = Parser::new(vec).program();
+    println!("{:#?}", parser);
+}
 
 
 

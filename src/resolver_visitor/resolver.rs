@@ -65,6 +65,7 @@ impl Resolve for CaptureResolver<'_> {
             Statement::ReturnStatement { expr } => {
                 self.resolve_expression(expr.as_ref().unwrap().deref());
             }
+            Statement::ClassDeclaration { .. } => {}
         }
     }
 
@@ -115,6 +116,7 @@ impl Resolve for CaptureResolver<'_> {
                 self.resolve_expression(&*lhs.clone());
             }
             Expression::Call { identifier, args } => {}
+            Expression::Get { .. } => {}
         }
     }
 }

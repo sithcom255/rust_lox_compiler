@@ -20,26 +20,31 @@ mod program;
 mod parser_tests;
 mod resolver_visitor;
 
-
-fn return_fn() -> String {
-    "fun hello() {
-       return \"Hello world\";
+fn get_class() -> String  {
+    "class Hello {
+        world() {
+         print \"Hello world\";
+        }
     }
-    print hello();
-    EOF;
+    var x = Hello();
+
+    // print x;
+    x.world();
+
     ".to_string()
-}
-pub fn init() -> Result<(), SetLoggerError> {
-    log::set_boxed_logger(Box::new(SimpleLogger::new()))
-        .map(|()| log::set_max_level(LevelFilter::Error))
 }
 
 fn main() {
     init();
-    let program = get_statement(return_fn());
+    let program = get_statement(get_class());
     debug(&program);
     let mut interpreter = StatementInterpreter::new_default();
     interpreter.interpret(program);
+}
+
+pub fn init() -> Result<(), SetLoggerError> {
+    log::set_boxed_logger(Box::new(SimpleLogger::new()))
+        .map(|()| log::set_max_level(LevelFilter::Debug))
 }
 
 fn debug(p: &Vec<Box<Statement>>) {
@@ -61,6 +66,14 @@ fn get_statement(program: String) -> Vec<Box<Statement>> {
     program
 }
 
+fn return_fn() -> String {
+    "fun hello() {
+       return \"Hello world\";
+    }
+    print hello();
+    EOF;
+    ".to_string()
+}
 
 fn multiple_assigments() -> String {
     "var x;

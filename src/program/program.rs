@@ -106,7 +106,7 @@ impl ProgramEnvs {
     }
 
     fn get_env(&self, name: &String) -> Option<Rc<RefCell<Environment>>> {
-        trace!("Resolving get_env {} ", "name");
+        trace!("Resolving get_env {} ", &name);
         let mut current = self.top.clone();
         loop {
             let mut next = None;

@@ -7,11 +7,11 @@ use log::{trace,info, warn, error};
 
 
 use crate::env::environment::Environment;
-use crate::expressions::expression::ExpressionRes;
-use crate::expressions::expression::ExprResType::{Boolean, Identifier};
+use crate::expressions::expression::{ExpressionRes, ExprResType};
+use crate::expressions::expression::ExprResType::{Boolean, Identifier, Instance};
 use crate::expressions::visitor::{ExpressionInterpreter, Visitor};
 use crate::program::program::ProgramEnvs;
-use crate::program::runtime::Method;
+use crate::program::runtime::{Class, Method};
 use crate::resolver_visitor::resolver::{CaptureResolver, Resolve};
 use crate::statements::statement::Statement;
 use crate::statements::stmt_visitor::StatementRes::{Expr, Void};
@@ -194,6 +194,10 @@ impl StmtVisitor for StatementInterpreter {
                     let envs = ref_mut.deref_mut();
                     let value = envs.lookup_var(content.str);
                     envs.define_ref_at_top(identifier_res.str, value.clone())
+                } else if content.type_ == ExprResType::Instance {
+                    let mut ref_mut = self.envs.try_borrow_mut().unwrap();
+                    let envs = ref_mut.deref_mut();
+                    envs.define_ref_at_top(identifier_res.str, Rc::new(RefCell::new(content)))
                 } else {
                     let mut ref_mut = self.envs.try_borrow_mut().unwrap();
                     let envs = ref_mut.deref_mut();
@@ -206,6 +210,27 @@ impl StmtVisitor for StatementInterpreter {
                 let option = (*expr).clone().unwrap();
                 let res = self.expression_visitor.eval(*option);
                 return Ok(Expr { res });
+            }
+            Statement::ClassDeclaration { identifier, functions } => {
+                trace!("Entering {} ", "ClassDeclaration");
+
+                let mut result_fn = vec![];
+                for fn_ in functions {
+                    if let Statement::FunStatement { identifier,
+                        args, block }  = *fn_.clone() {
+                        let mut arguments = vec![];
+                        for arg in args {
+                            arguments.push(self.expression_visitor.eval((arg).clone()));
+                        }
+                        let method1 = Method::new(identifier.value.clone(), arguments, *block.unwrap(), Environment::new());
+                        result_fn.push(Rc::new(method1));
+                    } ;
+                }
+                let class = Class::new_class(identifier.value.clone(), vec![], result_fn);
+                let mut ref_mut = self.envs.try_borrow_mut().unwrap();
+                let envs = ref_mut.deref_mut();
+                envs.define_at_top(identifier.value.clone(), ExpressionRes::from_class(class));
+                Ok(Void)
             }
         }
     }

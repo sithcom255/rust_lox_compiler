@@ -1,11 +1,12 @@
 use std::collections::LinkedList;
+use log::trace;
 
 use crate::expressions::expression::{Expression, ExpressionRes};
-use crate::expressions::expression::Expression::{Assignment, BinaryExpr, Call, GroupingExpr, LiteralExpr, Logical, UnaryExpr, VariableExpr};
+use crate::expressions::expression::Expression::{Assignment, BinaryExpr, Call, Get, GroupingExpr, LiteralExpr, Logical, UnaryExpr, VariableExpr};
 use crate::statements::statement::Statement;
-use crate::statements::statement::Statement::{BlockStatement, ForStatement, FunStatement, IfStatement, ReturnStatement, Stmt, WhileStatement};
+use crate::statements::statement::Statement::{BlockStatement, ClassDeclaration, ForStatement, FunStatement, IfStatement, ReturnStatement, Stmt, WhileStatement};
 use crate::token::{Scanner, Token, TokenType};
-use crate::token::TokenType::{And, Comma, Else, Equal, LeftBrace, LeftParen, Or, RightBrace, RightParen, Semicolon};
+use crate::token::TokenType::{And, Comma, Dot, Else, Equal, Identifier, LeftBrace, LeftParen, Or, RightBrace, RightParen, Semicolon};
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -36,34 +37,77 @@ impl Parser {
     }
 
     pub fn declaration(&mut self) -> Option<Box<Statement>> {
-        if self.get_current().token_type == TokenType::Var {
-            self.advance();
-            let option = self.primary();
-            if self.get_current().token_type == TokenType::Equal {
-                self.advance();
-                let expression = self.expression();
-                self.consume(Semicolon, "Variable initialization without semicolon".to_string());
-                Some(Box::new(Statement::VarDeclaration {
-                    expr: expression,
-                    identifier: option.unwrap(),
-                }))
-            } else {
-                self.consume(Semicolon, "Declaration without semicolon".to_string());
-                Some(Box::new(Statement::VarDeclaration {
-                    expr: Some(Box::new(VariableExpr { token_type: TokenType::Nil, value: "".to_string() })),
-                    identifier: option.unwrap(),
-                }))
+        match self.get_current().token_type {
+            TokenType::Var => {
+                self.variable_declaration()
             }
-        } else {
-            self.statement_get()
+            TokenType::Class => {
+                self.class_declaration()
+            }
+            _ => {
+                self.statement_get()
+            }
         }
+    }
+
+    fn variable_declaration(&mut self) -> Option<Box<Statement>> {
+        self.advance();
+        let option = self.primary();
+        if self.get_current().token_type == TokenType::Equal {
+            self.advance();
+            let expression = self.expression();
+            self.consume(Semicolon, "Variable initialization without semicolon".to_string());
+            Some(Box::new(Statement::VarDeclaration {
+                expr: expression,
+                identifier: option.unwrap(),
+            }))
+        } else {
+            self.consume(Semicolon, "Declaration without semicolon".to_string());
+            Some(Box::new(Statement::VarDeclaration {
+                expr: Some(Box::new(VariableExpr { token_type: TokenType::Nil, value: "".to_string() })),
+                identifier: option.unwrap(),
+            }))
+        }
+    }
+
+    fn class_declaration(&mut self) -> Option<Box<Statement>> {
+        self.advance();
+        let identifier = match self.get_current().token_type {
+            TokenType::Identifier => { self.get_current().clone() }
+            _ => { panic!("no identifier after fn declaration found: {:#?}", self.get_current()) }
+        };
+        self.advance();
+        if self.peek_next(LeftBrace) {
+            self.advance()
+        } else {
+            panic!("Did not find lef brace after identifier")
+        }
+        let mut functions = vec![];
+        while (!self.peek_next(RightBrace)) {
+            match self.function() {
+                None => { break; }
+                Some(value) => {
+                    functions.push(value);
+                }
+            }
+        }
+
+        if self.peek_next(RightBrace) {
+            self.advance()
+        } else {
+            panic!("Did not find lef brace after identifier")
+        }
+        Some(Box::new(ClassDeclaration { identifier, functions }))
     }
 
     pub fn statement_get(&mut self) -> Option<Box<Statement>> {
         match self.get_current().token_type {
             TokenType::Print => self.print_statement(),
             TokenType::If => self.if_statement(),
-            TokenType::Fun => self.function(),
+            TokenType::Fun => {
+                self.advance();
+                self.function()
+            }
             TokenType::While => self.while_block(),
             TokenType::For => self.for_loop(),
             TokenType::LeftBrace => self.block(),
@@ -95,7 +139,6 @@ impl Parser {
     }
 
     fn function(&mut self) -> Option<Box<Statement>> {
-        self.advance();
         let identifier = match self.get_current().token_type {
             TokenType::Identifier => { self.get_current().clone() }
             _ => { panic!("no identifier after fn declaration found: {:#?}", self.get_current()) }
@@ -213,7 +256,7 @@ impl Parser {
 
         if self.get_current().token_type == TokenType::Semicolon {
             self.advance();
-            return Some(Box::new(ReturnStatement { expr: None }))
+            return Some(Box::new(ReturnStatement { expr: None }));
         };
         let option = self.expression().unwrap();
         if self.peek_next(Semicolon) {
@@ -408,42 +451,55 @@ impl Parser {
         return self.call();
     }
 
-    fn call(&mut self) -> Option<Box<Expression>> {
-        let token = self.primary();
-        let mut args: Vec<Box<Expression>> = vec![];
-        if self.peek_next(LeftParen) {
-            self.advance();
 
-            match self.expression() {
-                None => {}
-                Some(value) => {
-                    args.push(value);
-                    for i in 0..255 {
-                        if !self.peek_next(Comma) {
-                            break;
-                        }
-                        match self.expression() {
-                            None => {
-                                panic!("found comma but not the argument");
+    fn call(&mut self) -> Option<Box<Expression>> {
+        let mut res = self.primary();
+        loop {
+            if self.peek_next(LeftParen) {
+                let mut args: Vec<Box<Expression>> = vec![];
+                self.advance();
+                match self.expression() {
+                    None => {}
+                    Some(value) => {
+                        args.push(value);
+                        for i in 0..255 {
+                            if !self.peek_next(Comma) {
+                                break;
                             }
-                            Some(value) => {
-                                args.push(value);
+                            match self.expression() {
+                                None => {
+                                    panic!("found comma but not the argument");
+                                }
+                                Some(value) => {
+                                    args.push(value);
+                                }
                             }
                         }
                     }
                 }
-            }
-            if self.peek_next(RightParen) {
+                if self.peek_next(RightParen) {
+                    self.advance();
+                } else {
+                    panic!("did not find the brace after arguments, found {:?}", self.get_current());
+                }
+                res = Some(Box::new(Call { identifier: res.unwrap(), args }));
+            } else if self.peek_next(Dot){
                 self.advance();
-            } else {
-                panic!("did not find the brace after arguments, found {:?}", self.get_current());
-            }
-            Some(Box::new(Call { identifier: token.unwrap(), args }))
-        } else {
-            token
-        }
-    }
+                if self.peek_next(Identifier) {
+                    let x = self.get_current().value.clone();
+                    self.advance();
+                    res = Some(Box::new(Get { expr: res.unwrap(), name: x }))
+                } else {
+                    trace!("there should be indentifier after .")
+                }
 
+            }
+            else {
+                return res
+            }
+        }
+        panic!("")
+    }
 
     fn primary(&mut self) -> Option<Box<Expression>> {
         let primary: Expression = match self.tokens[self.current].token_type {
@@ -492,7 +548,6 @@ impl Parser {
     fn advance(&mut self) {
         self.current += 1;
     }
-
     fn consume(&mut self, token: TokenType, error: String) {
         let x = self.get_current();
         if self.current < self.size && x.token_type == token {
